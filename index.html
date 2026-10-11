@@ -82,6 +82,10 @@
     .burn-control{display:flex;align-items:center;gap:8px;font-size:11px;color:#adcce8}
     .burn-control output{min-width:43px;text-align:right;color:#fff;font-weight:850;font-variant-numeric:tabular-nums}
     .burn-control input{flex:1;min-width:0}
+    .burn-nudges{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin-top:7px}
+    .burn-nudge{min-height:34px;min-width:0;padding:4px 1px;border-radius:7px;background:#142d48;border:1px solid #365676;color:#d2eaff;font-size:11px;font-weight:800;font-variant-numeric:tabular-nums}
+    .burn-nudge:active{background:#285e7e}
+    .burn-nudge.zero{color:#8ae2ff;border-color:#4c8ca8}
     .flight-panel .action-row{grid-template-columns:1fr auto}
     @media(max-height:700px){.burn-planner{padding:7px;margin-bottom:5px}.burn-modes{margin-bottom:4px}.burn-mode{min-height:27px}.burn-readout{font-size:10px}.fuel-track{margin-bottom:6px}.grade-line{padding-top:4px;margin-top:4px}.orbit-view-tag{top:80px}}
 
@@ -113,7 +117,7 @@
 <body>
 <div class="app">
   <header class="top">
-    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.4</span></div></div>
+    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.5</span></div></div>
     <div class="stats"><div class="stat">Shots <strong id="shotCount">0</strong></div><div class="stat">Wins <strong id="winCount">0</strong>/3</div></div>
   </header>
   <main class="arena" id="arena" aria-label="Interactive solar system. Drag outward from the blue home planet to aim a rocket.">
@@ -130,21 +134,28 @@
     <div class="mode-row"><div><div class="mode-title" id="controlTitle">Launch parameters</div><div class="mode-sub" id="controlSub">Relative to moving HOME planet</div></div><span id="statusPill" class="status-pill">READY</span></div>
     <div id="planningPanel"><div class="controls-grid">
       <div class="slider-col"><div class="slider-head"><label for="angleRange">Angle</label><output id="angleValue" for="angleRange">28°</output></div><input id="angleRange" type="range" min="-180" max="180" step="1" value="28"><div class="step-row"><button class="step" id="angleMinus" aria-label="Decrease launch angle by one degree">−1°</button><button class="step" id="anglePlus" aria-label="Increase launch angle by one degree">+1°</button></div></div>
-      <div class="slider-col"><div class="slider-head"><label for="speedRange">Launch Δv</label><output id="speedValue" for="speedRange">32.0</output></div><input id="speedRange" type="range" min="8" max="65" step="0.5" value="32"><div class="step-row"><button class="step" id="speedMinus" aria-label="Decrease launch velocity">−0.5</button><button class="step" id="speedPlus" aria-label="Increase launch velocity">+0.5</button></div></div>
+      <div class="slider-col"><div class="slider-head"><label for="speedRange">Launch Δv</label><output id="speedValue" for="speedRange">32.0</output></div><input id="speedRange" type="range" min="0" max="65" step="0.1" value="32"><div class="step-row"><button class="step" id="speedMinus" aria-label="Decrease launch delta v by 0.1">−0.1</button><button class="step" id="speedPlus" aria-label="Increase launch delta v by 0.1">+0.1</button></div></div>
     </div>
     <div class="action-row"><button id="launchButton" class="primary">▶ LAUNCH ROCKET</button><button id="retryButton" class="secondary">RESET</button></div></div>
     <div id="flightPanel" class="flight-panel" hidden>
       <div class="fuel-line"><span>FUEL <strong id="fuelValue">30.0 Δv</strong></span><span id="captureValue">Find the target's gravity well</span></div>
       <div class="fuel-track"><div id="fuelBar" class="fuel-fill"></div></div>
       <div id="burnPlanner" class="burn-planner" hidden>
-        <div class="burn-title">MANUAL THRUSTER <span id="burnCost">Fuel cost 4.0</span></div>
+        <div class="burn-title">MANUAL THRUSTER <span id="burnCost">Fuel cost 0.00</span></div>
         <div class="burn-modes">
           <button class="burn-mode selected" data-mode="brake" aria-pressed="true">BRAKE</button>
           <button class="burn-mode" data-mode="boost" aria-pressed="false">BOOST</button>
           <button class="burn-mode" data-mode="in" aria-pressed="false">RADIAL −</button>
           <button class="burn-mode" data-mode="out" aria-pressed="false">RADIAL +</button>
         </div>
-        <label class="burn-control" for="burnRange">Burn Δv <input id="burnRange" type="range" min="0.5" max="20" step="0.5" value="4"><output id="burnValue">4.0</output></label>
+        <label class="burn-control" for="burnRange">Burn Δv <input id="burnRange" type="range" min="0" max="20" step="0.01" value="0"><output id="burnValue">0.00</output></label>
+        <div class="burn-nudges" aria-label="Fine burn adjustments">
+          <button class="burn-nudge zero" id="burnZero" aria-label="Set burn to zero">0</button>
+          <button class="burn-nudge" id="burnMinusLarge" aria-label="Decrease burn by 0.1">−0.10</button>
+          <button class="burn-nudge" id="burnMinusFine" aria-label="Decrease burn by 0.01">−0.01</button>
+          <button class="burn-nudge" id="burnPlusFine" aria-label="Increase burn by 0.01">+0.01</button>
+          <button class="burn-nudge" id="burnPlusLarge" aria-label="Increase burn by 0.1">+0.10</button>
+        </div>
         <div class="burn-readout" id="burnPrediction">Adjust burn direction and magnitude to preview your orbit.</div>
         <div class="grade-line" id="gradeLine"><strong class="grade-mark" id="gradeMark">—</strong><span class="grade-copy" id="gradeText">Proposed orbit quality • future extraction potential</span></div>
       </div>
@@ -270,7 +281,7 @@ function readSaved(){
  }catch{return {shots:0,wins:[],grades:{}}}
 }
 const saved=readSaved();
-let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,target='aurora',angle=28,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,rocket=null,simT=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=4,burnMode='brake',burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
+let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,target='aurora',angle=28,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,rocket=null,simT=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=0,burnMode='brake',burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
 function store(){try{localStorage.setItem(DATA_KEY,JSON.stringify({shots,wins:[...wins],grades}))}catch{}}
 function orbitPos(p,t){const omega=Math.sqrt(MU_STAR/(p.orbit**3));const q=p.phase+omega*t;return {x:p.orbit*Math.cos(q),y:p.orbit*Math.sin(q),vx:-p.orbit*omega*Math.sin(q),vy:p.orbit*omega*Math.cos(q)}}
 function bodiesAt(t){return PLANETS.map(p=>({...p,...orbitPos(p,t)}))}
@@ -336,30 +347,34 @@ function updateControls(){
  $('pathLegend').hidden=!(phase==='flying'&&localEncounter&&paused&&showPath);
  $('orbitViewTag').hidden=!(phase==='flying'&&localEncounter);
  $('orbitViewTag').textContent=target!=='star'?`${MISSION[target].name.toUpperCase()} • ORBIT VIEW`:'';
- $('fuelValue').textContent=`${fuel.toFixed(1)} Δv`;
+ $('fuelValue').textContent=`${fuel.toFixed(2)} Δv`;
  $('fuelBar').style.width=`${100*fuel/MAX_FUEL}%`;
  if(phase==='flying'){
   $('coastButton').textContent=paused?'COAST ▶':'PAUSE';$('coastButton').disabled=false;
   if(localEncounter&&target!=='star'){
-   const orbital=orbitalElements(rocket,target),trial=proposedBurn(),newOrbit=trial?orbitalElements(trial,target):null;
+    burnPower=Math.round(CLAMP(burnPower,0,Math.min(20,fuel))*100)/100;
+    const orbital=orbitalElements(rocket,target),trial=proposedBurn(),newOrbit=trial?orbitalElements(trial,target):orbital;
    rebuildBurnPreview();
    const rating=orbitRating(newOrbit,target);
    $('captureValue').textContent=orbital.stable?`SAFE ORBIT · ${Math.floor(100*Math.min(1,stableSweep/TAU))}%`:`${burnCount} burn${burnCount===1?'':'s'} · ADJUST ORBIT`;
    $('orbitTelemetry').textContent=`RADIAL ${orbital.radial.toFixed(1)} · SIDEWAYS ${orbital.tangent.toFixed(1)} · CIRCLE ${orbital.circle.toFixed(1)} Δv`;
    const metric=newOrbit&&Number.isFinite(newOrbit.apo)?`Pe ${newOrbit.peri.toFixed(1)} / Ap ${newOrbit.apo.toFixed(1)}`:
-    (newOrbit?`Pe ${newOrbit.peri.toFixed(1)} / unbound`:'No fuel');
-   $('burnPrediction').textContent=`AFTER BURN · ${rating.status} · ${metric}`;
+    (newOrbit?`Pe ${newOrbit.peri.toFixed(1)} / unbound`:'No orbit data');
+   $('burnPrediction').textContent=`${trial?'AFTER BURN':'NO BURN · COAST'} · ${rating.status} · ${metric}`;
    $('burnPrediction').className=`burn-readout ${rating.tone}`;
    $('gradeMark').textContent=rating.grade;
    $('gradeMark').className=`grade-mark ${rating.tone}`;
    $('gradeText').textContent=rating.score===null?rating.description:`Projected orbit grade ${rating.grade} (${rating.score}/100) · future extraction potential`;
 
-   $('burnCost').textContent=`Fuel cost ${Math.min(burnPower,fuel).toFixed(1)} / ${fuel.toFixed(1)}`;
-   $('burnValue').textContent=burnPower.toFixed(1);
-   $('burnRange').max=Math.max(.5,Math.min(20,fuel));
-   $('burnRange').value=Math.min(burnPower,Math.max(.5,fuel));
-   $('orbitButton').disabled=fuel<.49;
-   $('orbitButton').textContent='🔥 APPLY BURN';
+   const maxBurn=Math.min(20,fuel);
+   burnPower=Math.round(CLAMP(burnPower,0,maxBurn)*100)/100;
+   $('burnCost').textContent=`Fuel cost ${burnPower.toFixed(2)} / ${fuel.toFixed(2)}`;
+   $('burnValue').textContent=burnPower.toFixed(2);
+   $('burnRange').max=maxBurn.toFixed(2);
+   $('burnRange').value=burnPower.toFixed(2);
+   $('orbitButton').disabled=burnPower<=0||fuel<=0;
+   $('orbitButton').textContent=burnPower<=0?'NO BURN · USE COAST':'🔥 APPLY BURN';
+   for(const id of ['burnMinusLarge','burnMinusFine','burnPlusFine','burnPlusLarge','burnZero'])$(id).disabled=fuel<=0;
   }else{
    burnPreview=null;
    $('orbitTelemetry').textContent='';
@@ -375,7 +390,8 @@ function updateControls(){
 }
 function chooseTarget(id){if(!MISSION[id])return;target=id;resetFlight();}
 function resetFlight(){phase='aiming';rocket=null;simT=0;paused=false;accum=0;result=null;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;$('resultShade').classList.remove('show');predict();updateControls();}
-function changeAim(nextAngle,nextSpeed){angle=CLAMP(Math.round(nextAngle),-180,180);speed=CLAMP(Math.round(nextSpeed*2)/2,8,65);predict();updateControls();}
+function changeAim(nextAngle,nextSpeed){angle=CLAMP(Math.round(nextAngle),-180,180);speed=CLAMP(Math.round(nextSpeed*10)/10,0,65);predict();updateControls();}
+function setBurnPower(nextPower){burnPower=Math.round(CLAMP(nextPower,0,Math.min(20,fuel))*100)/100;updateControls();}
 function launch(){
  if(phase==='flying')return;
  if(phase!=='aiming'){resetFlight();}
@@ -397,14 +413,15 @@ function endFlight(outcome){
  $('dialogSymbol').style.color=phase==='won'?'#79e9b8':'#ff849d';
  $('dialogEyebrow').textContent=phase==='won'?'MISSION COMPLETE':'FLIGHT FAILED';
  $('dialogTitle').textContent=phase==='won'?(target==='star'?'Stellar impact!':'Stable orbit achieved!'):'Flight failed';
- $('dialogDetail').textContent=phase==='won'?(target==='star'?`${MISSION[target].success} Flight time: ${simT.toFixed(1)}s.`:`${MISSION[target].success} Orbit grade ${finalScore?.grade||'—'} (${finalScore?.score??'—'}/100). Best recorded: ${grades[target]??'—'}/100. Future resource extraction potential. Fuel left: ${fuel.toFixed(1)} Δv.`):`${outcome.label} Try a new angle or launch speed.`;
+ $('dialogDetail').textContent=phase==='won'?(target==='star'?`${MISSION[target].success} Flight time: ${simT.toFixed(1)}s.`:`${MISSION[target].success} Orbit grade ${finalScore?.grade||'—'} (${finalScore?.score??'—'}/100). Best recorded: ${grades[target]??'—'}/100. Future resource extraction potential. Fuel left: ${fuel.toFixed(2)} Δv.`):`${outcome.label} Try a new angle or launch speed.`;
  $('dialogNext').textContent=phase==='won'?'NEXT TARGET':'CHANGE TARGET';
  $('resultShade').classList.add('show');
 }
 function applyBurn(){
- if(phase!=='flying'||!localEncounter||target==='star'||fuel<.5)return;
+ if(phase!=='flying'||!localEncounter||target==='star'||burnPower<=0||fuel<=0)return;
  const burn=proposedBurn();if(!burn)return;
- const dv=Math.min(fuel,burnPower);fuel=Math.max(0,fuel-dv);rocket=burn;
+ const dv=Math.min(fuel,burnPower);fuel=Math.max(0,Math.round((fuel-dv)*100)/100);rocket=burn;
+  burnPower=Math.min(burnPower,fuel);
  burnCount++;stableSweep=0;lastPolar=null;
  // Remain paused for deliberate planning; to fly, tap COAST.
  paused=true;accum=0;updateControls();
@@ -551,7 +568,7 @@ function render(){
   if(trail.length>1){ctx.beginPath();trail.forEach((pos,i)=>{const s=worldToScreen(pos.x,pos.y);i===0?ctx.moveTo(s.x,s.y):ctx.lineTo(s.x,s.y)});ctx.strokeStyle='#75eaffba';ctx.lineWidth=2;ctx.stroke()}
   const s=worldToScreen(rocket.x,rocket.y);ctx.save();ctx.translate(s.x,s.y);ctx.rotate(Math.atan2(rocket.vy,rocket.vx)+PI/2);
   ctx.shadowColor='#7bdffe';ctx.shadowBlur=12;ctx.fillStyle='#e9fcff';ctx.beginPath();ctx.moveTo(0,-7);ctx.lineTo(4,5);ctx.lineTo(0,3);ctx.lineTo(-4,5);ctx.closePath();ctx.fill();ctx.restore();
-  if(localEncounter&&paused&&target!=='star'&&fuel>.49){
+  if(localEncounter&&paused&&target!=='star'&&burnPower>0&&fuel>0){
    const dir=burnVector(rocket,target,burnMode),sx=s.x+dir.x*34,sy=s.y+dir.y*34;
    ctx.strokeStyle='#ffd28f';ctx.fillStyle='#ffd28f';ctx.lineWidth=2.2;
    ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(sx,sy);ctx.stroke();
@@ -590,17 +607,19 @@ canvas.addEventListener('pointermove',e=>{
  if(!dragging||pointerId!==e.pointerId||phase!=='aiming')return;
  const {x,y}=clickAt(e.clientX,e.clientY),home=orbitPos(PLANETS[0],0),hp=worldToScreen(home.x,home.y);
  const dx=x-hp.x,dy=y-hp.y,dist=Math.hypot(dx,dy);
- if(dist>10)changeAim(Math.atan2(dy,dx)/RAD,CLAMP(8+dist/Math.max(80,view.width*.3)*57,8,65));
+ if(dist>10)changeAim(Math.atan2(dy,dx)/RAD,CLAMP(dist/Math.max(80,view.width*.3)*65,0,65));
  e.preventDefault();
 });
 for(const evt of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(evt,e=>{if(e.pointerId===pointerId){dragging=false;pointerId=null}});
 $('angleRange').addEventListener('input',e=>changeAim(+e.target.value,speed));
 $('speedRange').addEventListener('input',e=>changeAim(angle,+e.target.value));
 $('angleMinus').addEventListener('click',()=>changeAim(angle-1,speed));$('anglePlus').addEventListener('click',()=>changeAim(angle+1,speed));
-$('speedMinus').addEventListener('click',()=>changeAim(angle,speed-.5));$('speedPlus').addEventListener('click',()=>changeAim(angle,speed+.5));
+$('speedMinus').addEventListener('click',()=>changeAim(angle,speed-.1));$('speedPlus').addEventListener('click',()=>changeAim(angle,speed+.1));
 $('launchButton').addEventListener('click',launch);$('retryButton').addEventListener('click',resetFlight);
 $('orbitButton').addEventListener('click',applyBurn);
-$('burnRange').addEventListener('input',e=>{burnPower=+e.target.value;updateControls()});
+$('burnRange').addEventListener('input',e=>setBurnPower(+e.target.value));
+for(const [id,dv] of [['burnMinusLarge',-.1],['burnMinusFine',-.01],['burnPlusFine',.01],['burnPlusLarge',.1]])$(id).addEventListener('click',()=>setBurnPower(burnPower+dv));
+$('burnZero').addEventListener('click',()=>setBurnPower(0));
 for(const b of document.querySelectorAll('.burn-mode'))b.addEventListener('click',()=>{burnMode=b.dataset.mode;updateControls()});
 $('coastButton').addEventListener('click',()=>{if(phase==='flying'){paused=!paused;updateControls()}});
 $('togglePath').addEventListener('click',()=>{showPath=!showPath;$('togglePath').classList.toggle('selected',showPath);$('togglePath').setAttribute('aria-pressed',String(showPath));updateControls()});
@@ -616,7 +635,7 @@ window.__flightLab={getState:()=>({phase,target,angle,speed,simT,shots,wins:[...
  fuel,paused,rocket,localEncounter,burnPower,burnMode,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
  predicted:burnPreview?{coast:burnPreview.coast?.rating,after:burnPreview.after?.rating,points:burnPreview.after?.points.length,ending:burnPreview.after?.ending}:null,grades}),
  setAim:(a,v)=>{if(phase==='aiming')changeAim(a,v)},chooseTarget,resetFlight,
- setBurn:(mode,power)=>{burnMode=mode;burnPower=CLAMP(power,.5,20);updateControls()},
+ setBurn:(mode,power)=>{burnMode=mode;setBurnPower(power)},
  applyBurn,advanceTest:(n=1)=>{for(let i=0;i<n&&phase==='flying'&&!paused;i++)tickPhysics(.055);updateControls();}};
 })();
 </script>
