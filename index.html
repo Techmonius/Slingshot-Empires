@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Slingshot">
   <meta name="description" content="A tiny orbital strategy game. Aim, launch, and intercept moving worlds.">
-  <meta property="og:title" content="Slingshot Empires — Prototype 0.3">
+  <meta property="og:title" content="Slingshot Empires — Prototype 0.4">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -68,13 +68,22 @@
     .burn-modes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin-bottom:7px}
     .burn-mode{min-height:32px;min-width:0;border-radius:7px;border:1px solid #36516d;background:#152b46;color:#bcd2ed;font-size:10px;font-weight:750;padding:2px 1px}
     .burn-mode.selected{color:#071a26;background:#8ae2ff;border-color:#a7f2ff}
-    .burn-readout{font-size:10px;color:#abcee4;line-height:1.45;margin:4px 0 0;font-variant-numeric:tabular-nums}
+    .burn-readout{font-size:11px;color:#abcee4;line-height:1.4;margin:6px 0 0;font-variant-numeric:tabular-nums}
+    .burn-readout.safe{color:#91f2bd}.burn-readout.danger{color:#ff9daf}.burn-readout.caution{color:#ffd38c}
+    .grade-line{display:flex;align-items:center;gap:8px;padding-top:7px;margin-top:7px;border-top:1px solid #324961;min-height:28px}
+    .grade-mark{min-width:26px;text-align:center;font-size:20px;font-weight:900;color:#97edc0}
+    .grade-mark.danger{color:#ff9daf}.grade-mark.caution{color:#ffd38c}
+    .grade-copy{font-size:10px;color:#b5c9df;line-height:1.25}
+    .path-legend{position:absolute;left:12px;bottom:47px;pointer-events:none;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 9px;background:rgba(8,22,37,.88);border:1px solid rgba(100,152,195,.22);border-radius:8px;font-size:10px;color:#d1e6f8}
+    .path-key{display:inline-flex;align-items:center;gap:5px}.keyline{width:20px;border-top:2px dashed #9ca9bb;display:inline-block}.keyline.after{border-top:2px solid #4ee3ff}
+    .orbit-view-tag{position:absolute;right:13px;top:87px;padding:4px 7px;border:1px solid rgba(114,177,212,.3);background:#071626db;border-radius:6px;color:#a9d8f1;font-size:9px;font-weight:750;letter-spacing:.04em;pointer-events:none}
+
     #orbitTelemetry{font-size:10px;color:#bcdbef;margin:0 0 8px;line-height:1.4;min-height:14px;font-variant-numeric:tabular-nums}
     .burn-control{display:flex;align-items:center;gap:8px;font-size:11px;color:#adcce8}
     .burn-control output{min-width:43px;text-align:right;color:#fff;font-weight:850;font-variant-numeric:tabular-nums}
     .burn-control input{flex:1;min-width:0}
     .flight-panel .action-row{grid-template-columns:1fr auto}
-    @media(max-height:700px){.burn-planner{padding:7px;margin-bottom:5px}.burn-modes{margin-bottom:4px}.burn-mode{min-height:27px}.burn-readout{font-size:9px}.fuel-track{margin-bottom:6px}}
+    @media(max-height:700px){.burn-planner{padding:7px;margin-bottom:5px}.burn-modes{margin-bottom:4px}.burn-mode{min-height:27px}.burn-readout{font-size:10px}.fuel-track{margin-bottom:6px}.grade-line{padding-top:4px;margin-top:4px}.orbit-view-tag{top:80px}}
 
     [hidden]{display:none!important}
     .fuel-line{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;color:#9fb6da;margin-bottom:6px;min-height:19px}
@@ -104,7 +113,7 @@
 <body>
 <div class="app">
   <header class="top">
-    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.3</span></div></div>
+    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.4</span></div></div>
     <div class="stats"><div class="stat">Shots <strong id="shotCount">0</strong></div><div class="stat">Wins <strong id="winCount">0</strong>/3</div></div>
   </header>
   <main class="arena" id="arena" aria-label="Interactive solar system. Drag outward from the blue home planet to aim a rocket.">
@@ -113,6 +122,8 @@
       <div class="objective"><div class="eyebrow">CURRENT MISSION</div><strong id="objectiveLabel">Orbit Aurora</strong><div class="hint-mini" id="objectiveHint">Reach its capture zone and burn</div></div>
       <div class="viewport-actions"><button id="togglePath" class="iconbtn selected" title="Toggle projected flight path" aria-label="Toggle projected flight path" aria-pressed="true">〰</button><button id="pauseButton" class="iconbtn" title="Pause or resume flight" aria-label="Pause or resume flight">Ⅱ</button></div>
     </div>
+    <div id="orbitViewTag" class="orbit-view-tag" hidden>PLANET-FRAME CAMERA</div>
+    <div id="pathLegend" class="path-legend" hidden><span class="path-key"><i class="keyline"></i>Coast</span><span class="path-key"><i class="keyline after"></i>After burn</span><span>Pe / Ap = orbit extremes</span></div>
     <div class="arena-bottom"><div class="tip" id="touchTip">Drag from HOME to aim · Tap a planet to target it</div><div class="time-chip" id="clock">T + 0.0s</div></div>
   </main>
   <section class="controls" aria-label="Launch controls">
@@ -134,7 +145,8 @@
           <button class="burn-mode" data-mode="out" aria-pressed="false">RADIAL +</button>
         </div>
         <label class="burn-control" for="burnRange">Burn Δv <input id="burnRange" type="range" min="0.5" max="20" step="0.5" value="4"><output id="burnValue">4.0</output></label>
-        <div class="burn-readout" id="burnPrediction">Choose a direction and amount, then apply your burn.</div>
+        <div class="burn-readout" id="burnPrediction">Adjust burn direction and magnitude to preview your orbit.</div>
+        <div class="grade-line" id="gradeLine"><strong class="grade-mark" id="gradeMark">—</strong><span class="grade-copy" id="gradeText">Proposed orbit quality • future extraction potential</span></div>
       </div>
       <div id="orbitTelemetry"></div>
       <div class="action-row"><button id="orbitButton" class="primary" disabled>WAIT FOR ENCOUNTER</button><button id="coastButton" class="secondary">PAUSE</button></div>
@@ -156,7 +168,7 @@ const PLANETS=[
  {id:'cinder',name:'Cinder',orbit:117,phase:-65*RAD,r:15,mu:750,color:'#f0aa7e',atmosphere:'#cd5861'}
 ];
 const MISSION={aurora:{name:'Aurora',hint:'Enter the green zone, fly and burn into orbit',success:'Aurora orbit secured. Your first orbital outpost is established.'},cinder:{name:'Cinder',hint:'Brake manually, avoid impact, complete an orbit',success:'Cinder orbit secured. You mastered the inner system.'},star:{name:'Star',hint:'Dive into the star (experimental target)',success:'Stellar impact! That ship will not be coming home.'}};
-const DATA_KEY='slingshot-flight-lab-v03',OLD_DATA_KEY='slingshot-flight-lab-v02',FIRST_DATA_KEY='slingshot-flight-lab-v01';
+const DATA_KEY='slingshot-flight-lab-v04',OLD_DATA_KEY='slingshot-flight-lab-v03',V02_DATA_KEY='slingshot-flight-lab-v02',FIRST_DATA_KEY='slingshot-flight-lab-v01';
 const MAX_FUEL=30;
 const CAPTURE_RADIUS={aurora:46,cinder:37};
 const ORBIT_LIMIT={aurora:72,cinder:58};
@@ -201,17 +213,65 @@ function localAdvance(r,dt,id){
  const nvy=q.uy+.5*(factor*q.dy+nf*ry)*dt;
  return {x:np.x+rx,y:np.y+ry,vx:np.vx+nvx,vy:np.vy+nvy,t:r.t+dt};
 }
+// Orbit quality is a GAMEPLAY HEURISTIC, not a claim about real extraction physics.
+// A safe, low-eccentricity, moderately low orbit scores best. Mining modifiers come later.
+function orbitRating(o,id){
+ if(!o)return {status:'NO DATA',tone:'caution',grade:'—',score:null,description:'No orbit data'};
+ if(o.peri<=o.p.r+3)return {status:'IMPACT',tone:'danger',grade:'F',score:0,description:'Periapsis intersects the safety altitude'};
+ if(o.energy>=0||!Number.isFinite(o.apo))return {status:'ESCAPE',tone:'danger',grade:'—',score:null,description:'Unbound from the planet'};
+ if(o.apo>ORBIT_LIMIT[id])return {status:'HIGH APO',tone:'caution',grade:'—',score:null,description:'Beyond operational orbit limit'};
+ const ideal=o.p.r+16;
+ const eccFactor=Math.max(0,1-o.ecc/.72);
+ const avgRadius=(o.peri+o.apo)*.5;
+ const altitudeFactor=Math.max(0,1-Math.abs(avgRadius-ideal)/Math.max(1,ORBIT_LIMIT[id]-ideal));
+ const lowPass=Math.max(0,Math.min(1,(o.peri-(o.p.r+3))/5));
+ const score=Math.max(0,Math.min(100,Math.round((68*eccFactor+32*altitudeFactor)*(.65+.35*lowPass))));
+ const grade=score>=90?'S':score>=75?'A':score>=60?'B':score>=45?'C':score>=30?'D':'F';
+ return {status:'SAFE ORBIT',tone:'safe',grade,score,description:`Orbit quality ${score}/100 • extraction potential (future)`};
+}
+function orbitExtrema(o){
+ if(!o||o.energy>=0||!Number.isFinite(o.apo)||o.ecc<.035)return null;
+ const v2=o.ux*o.ux+o.uy*o.uy,rv=o.dx*o.ux+o.dy*o.uy,r=Math.max(1,o.dist),mu=o.p.mu;
+ const ex=((v2-mu/r)*o.dx-rv*o.ux)/mu,ey=((v2-mu/r)*o.dy-rv*o.uy)/mu;
+ const mag=Math.hypot(ex,ey);if(mag<1e-7)return null;
+ return {peri:{dx:o.peri*ex/mag,dy:o.peri*ey/mag},apo:{dx:-o.apo*ex/mag,dy:-o.apo*ey/mag}};
+}
+// Use the same continuous planet-relative velocity-Verlet integrator as live encounters.
+function traceLocal(initial,id){
+ if(!initial)return null;
+ let r={...initial},travel=0,angleTravel=0,prevAngle=null,ending='TIME';
+ const points=[],dt=.075,limit=1900,stepSample=3;
+ const elements=orbitalElements(r,id),rating=orbitRating(elements,id);
+ for(let i=0;i<limit;i++){
+  const q=encounterFrame(r,id);if(!q)break;
+  if(i%stepSample===0)points.push({dx:q.dx,dy:q.dy});
+  if(q.dist<=q.p.r+3){ending='IMPACT';break;}
+  if(q.dist>ORBIT_LIMIT[id]*1.5){ending='ESCAPE';break;}
+  const polar=Math.atan2(q.dy,q.dx);
+  if(prevAngle!==null)angleTravel+=Math.abs(Math.atan2(Math.sin(polar-prevAngle),Math.cos(polar-prevAngle)));
+  prevAngle=polar;
+  if(angleTravel>=TAU*1.08){ending='REVOLUTION';break;}
+  r=localAdvance(r,dt,id);travel+=dt;
+ }
+ return {points,elements,rating,ending,extrema:orbitExtrema(elements)};
+}
+function rebuildBurnPreview(){
+ if(phase!=='flying'||!localEncounter||!paused||target==='star'||!rocket){burnPreview=null;return;}
+ const coast=traceLocal(rocket,target),after=proposedBurn();
+ burnPreview={coast,after:after?traceLocal(after,target):null};
+}
 function readSaved(){
  try{
-  const newer=localStorage.getItem(DATA_KEY),previous=localStorage.getItem(OLD_DATA_KEY);
-  const s=JSON.parse(newer||previous||localStorage.getItem(FIRST_DATA_KEY)||'{}');
-  return {shots:Number.isFinite(s.shots)?s.shots:0,
-   wins:Array.isArray(s.wins)?s.wins.filter(x=>MISSION[x]&&(newer||previous||x==='star')):[]};
- }catch{return {shots:0,wins:[]}}
+  const newer=localStorage.getItem(DATA_KEY),previous=localStorage.getItem(OLD_DATA_KEY),v02=localStorage.getItem(V02_DATA_KEY);
+  const s=JSON.parse(newer||previous||v02||localStorage.getItem(FIRST_DATA_KEY)||'{}');
+  const grades=s.grades&&typeof s.grades==='object'?Object.fromEntries(Object.entries(s.grades).filter(([k,v])=>k!=='star'&&MISSION[k]&&Number.isFinite(v)&&v>=0&&v<=100)):{};
+  return {shots:Number.isFinite(s.shots)?s.shots:0,grades,
+   wins:Array.isArray(s.wins)?s.wins.filter(x=>MISSION[x]&&(newer||previous||v02||x==='star')):[]};
+ }catch{return {shots:0,wins:[],grades:{}}}
 }
 const saved=readSaved();
-let shots=saved.shots,wins=new Set(saved.wins),target='aurora',angle=28,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,rocket=null,simT=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=4,burnMode='brake',burnCount=0,stableSweep=0,lastPolar=null;
-function store(){try{localStorage.setItem(DATA_KEY,JSON.stringify({shots,wins:[...wins]}))}catch{}}
+let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,target='aurora',angle=28,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,rocket=null,simT=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=4,burnMode='brake',burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
+function store(){try{localStorage.setItem(DATA_KEY,JSON.stringify({shots,wins:[...wins],grades}))}catch{}}
 function orbitPos(p,t){const omega=Math.sqrt(MU_STAR/(p.orbit**3));const q=p.phase+omega*t;return {x:p.orbit*Math.cos(q),y:p.orbit*Math.sin(q),vx:-p.orbit*omega*Math.sin(q),vy:p.orbit*omega*Math.cos(q)}}
 function bodiesAt(t){return PLANETS.map(p=>({...p,...orbitPos(p,t)}))}
 function getBody(id,t){if(id==='star')return {...STAR,x:0,y:0,vx:0,vy:0};const p=PLANETS.find(p=>p.id===id);return {...p,...orbitPos(p,t)}}
@@ -273,17 +333,27 @@ function updateControls(){
  $('planningPanel').hidden=disable;
  $('flightPanel').hidden=!disable;
  $('burnPlanner').hidden=!(phase==='flying'&&localEncounter&&target!=='star');
+ $('pathLegend').hidden=!(phase==='flying'&&localEncounter&&paused&&showPath);
+ $('orbitViewTag').hidden=!(phase==='flying'&&localEncounter);
+ $('orbitViewTag').textContent=target!=='star'?`${MISSION[target].name.toUpperCase()} • ORBIT VIEW`:'';
  $('fuelValue').textContent=`${fuel.toFixed(1)} Δv`;
  $('fuelBar').style.width=`${100*fuel/MAX_FUEL}%`;
  if(phase==='flying'){
   $('coastButton').textContent=paused?'COAST ▶':'PAUSE';$('coastButton').disabled=false;
   if(localEncounter&&target!=='star'){
    const orbital=orbitalElements(rocket,target),trial=proposedBurn(),newOrbit=trial?orbitalElements(trial,target):null;
+   rebuildBurnPreview();
+   const rating=orbitRating(newOrbit,target);
    $('captureValue').textContent=orbital.stable?`SAFE ORBIT · ${Math.floor(100*Math.min(1,stableSweep/TAU))}%`:`${burnCount} burn${burnCount===1?'':'s'} · ADJUST ORBIT`;
    $('orbitTelemetry').textContent=`RADIAL ${orbital.radial.toFixed(1)} · SIDEWAYS ${orbital.tangent.toFixed(1)} · CIRCLE ${orbital.circle.toFixed(1)} Δv`;
-   const metric=newOrbit&&Number.isFinite(newOrbit.apo)?`Peri ${newOrbit.peri.toFixed(0)} / Apo ${newOrbit.apo.toFixed(0)}`:
-    (newOrbit?`Peri ${newOrbit.peri.toFixed(0)} / ESCAPE`:'No fuel');
-   $('burnPrediction').textContent=`Post-burn: ${metric}${newOrbit&&newOrbit.stable?' · SAFE ORBIT':''}`;
+   const metric=newOrbit&&Number.isFinite(newOrbit.apo)?`Pe ${newOrbit.peri.toFixed(1)} / Ap ${newOrbit.apo.toFixed(1)}`:
+    (newOrbit?`Pe ${newOrbit.peri.toFixed(1)} / unbound`:'No fuel');
+   $('burnPrediction').textContent=`AFTER BURN · ${rating.status} · ${metric}`;
+   $('burnPrediction').className=`burn-readout ${rating.tone}`;
+   $('gradeMark').textContent=rating.grade;
+   $('gradeMark').className=`grade-mark ${rating.tone}`;
+   $('gradeText').textContent=rating.score===null?rating.description:`Projected orbit grade ${rating.grade} (${rating.score}/100) · future extraction potential`;
+
    $('burnCost').textContent=`Fuel cost ${Math.min(burnPower,fuel).toFixed(1)} / ${fuel.toFixed(1)}`;
    $('burnValue').textContent=burnPower.toFixed(1);
    $('burnRange').max=Math.max(.5,Math.min(20,fuel));
@@ -291,6 +361,7 @@ function updateControls(){
    $('orbitButton').disabled=fuel<.49;
    $('orbitButton').textContent='🔥 APPLY BURN';
   }else{
+   burnPreview=null;
    $('orbitTelemetry').textContent='';
    $('captureValue').textContent=target==='star'?'Stellar impact mission':'Enter the green encounter zone';
    $('orbitButton').disabled=true;$('orbitButton').textContent='WAIT FOR ENCOUNTER';
@@ -298,28 +369,35 @@ function updateControls(){
  }
  $('launchButton').disabled=disable;$('launchButton').textContent=disable?'● IN FLIGHT':phase==='aiming'?'▶ LAUNCH ROCKET':'▶ FLY AGAIN';
  $('pauseButton').textContent=paused?'▶':'Ⅱ';$('pauseButton').title=paused?'Resume flight':'Pause flight';
- $('touchTip').textContent=phase==='aiming'?(target==='star'?'Aim to hit the star':'Aim past the planet, not directly into it'):phase==='flying'?(localEncounter?(paused?'Pick burn direction + fuel, then COAST':'Pause to plan another burn'): 'Approach the green ring to begin manual capture'):'Adjust and retry, or choose another target';
+ $('touchTip').textContent=phase==='aiming'?(target==='star'?'Aim to hit the star':'Aim past the planet, not directly into it'):phase==='flying'?(localEncounter?(paused?'GRAY = coast · CYAN = selected burn':'Pause to plan another burn'): 'Approach the green ring to begin manual capture'):'Adjust and retry, or choose another target';
  for(const id of ['aurora','cinder','star'])$('mission'+id[0].toUpperCase()+id.slice(1)).style.color=id===target?'#e5fbff':'#7fa3c2';
  for(const b of document.querySelectorAll('.burn-mode')){const selected=b.dataset.mode===burnMode;b.classList.toggle('selected',selected);b.setAttribute('aria-pressed',String(selected));}
 }
 function chooseTarget(id){if(!MISSION[id])return;target=id;resetFlight();}
-function resetFlight(){phase='aiming';rocket=null;simT=0;paused=false;accum=0;result=null;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnCount=0;stableSweep=0;lastPolar=null;trail.length=0;$('resultShade').classList.remove('show');predict();updateControls();}
+function resetFlight(){phase='aiming';rocket=null;simT=0;paused=false;accum=0;result=null;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;$('resultShade').classList.remove('show');predict();updateControls();}
 function changeAim(nextAngle,nextSpeed){angle=CLAMP(Math.round(nextAngle),-180,180);speed=CLAMP(Math.round(nextSpeed*2)/2,8,65);predict();updateControls();}
 function launch(){
  if(phase==='flying')return;
  if(phase!=='aiming'){resetFlight();}
- shots++;store();rocket=startRocket();simT=0;phase='flying';paused=false;accum=0;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnCount=0;stableSweep=0;lastPolar=null;trail.length=0;updateControls();
+ shots++;store();rocket=startRocket();simT=0;phase='flying';paused=false;accum=0;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;updateControls();
 }
 const trail=[];
 function endFlight(outcome){
  phase=outcome.kind==='win'?'won':'lost';result=outcome;
- if(phase==='won'){wins.add(target);store();}
+ if(phase==='won'){
+  wins.add(target);
+  if(target!=='star'){
+   finalScore=orbitRating(orbitalElements(rocket,target),target);
+   if(finalScore.score!==null)grades[target]=Math.max(grades[target]??0,finalScore.score);
+  }
+  store();
+ }
  updateControls();
  $('dialogSymbol').textContent=phase==='won'?'✦':'↯';
  $('dialogSymbol').style.color=phase==='won'?'#79e9b8':'#ff849d';
  $('dialogEyebrow').textContent=phase==='won'?'MISSION COMPLETE':'FLIGHT FAILED';
  $('dialogTitle').textContent=phase==='won'?(target==='star'?'Stellar impact!':'Stable orbit achieved!'):'Flight failed';
- $('dialogDetail').textContent=phase==='won'?`${MISSION[target].success} Flight time: ${simT.toFixed(1)}s. Fuel left: ${fuel.toFixed(1)} Δv.`:`${outcome.label} Try a new angle or launch speed.`;
+ $('dialogDetail').textContent=phase==='won'?(target==='star'?`${MISSION[target].success} Flight time: ${simT.toFixed(1)}s.`:`${MISSION[target].success} Orbit grade ${finalScore?.grade||'—'} (${finalScore?.score??'—'}/100). Best recorded: ${grades[target]??'—'}/100. Future resource extraction potential. Fuel left: ${fuel.toFixed(1)} Δv.`):`${outcome.label} Try a new angle or launch speed.`;
  $('dialogNext').textContent=phase==='won'?'NEXT TARGET':'CHANGE TARGET';
  $('resultShade').classList.add('show');
 }
@@ -372,14 +450,22 @@ function resize(){
  const random=(n)=>{let z=(n*1664525+1013904223)>>>0;return z/4294967296};
  stars=Array.from({length:90},(_,i)=>({x:random(i*17+1)*view.width,y:random(i*27+3)*view.height,s:.35+random(i*19+8)*1.3,opacity:.2+random(i*13+4)*.6}));
 }
-function worldToScreen(x,y){return {x:view.cx+x*view.scale,y:view.cy+y*view.scale}}
-function screenToWorld(x,y){return {x:(x-view.cx)/view.scale,y:(y-view.cy)/view.scale}}
+let camera={x:0,y:0,scale:1,cx:0,cy:0};
+function setCamera(){
+ if(localEncounter&&rocket&&target!=='star'){
+  const p=getBody(target,simT),limit=ORBIT_LIMIT[target];
+  camera={x:p.x,y:p.y,scale:Math.max(.5,Math.min((view.width-30)/(2.35*limit),(view.height-18)/(2.35*limit))),cx:view.width*.5,cy:view.height*.51};
+ }else camera={x:0,y:0,scale:view.scale,cx:view.cx,cy:view.cy};
+}
+function worldToScreen(x,y){return {x:camera.cx+(x-camera.x)*camera.scale,y:camera.cy+(y-camera.y)*camera.scale}}
+function screenToWorld(x,y){return {x:(x-camera.cx)/camera.scale+camera.x,y:(y-camera.cy)/camera.scale+camera.y}}
+
 function lineCircle(x,y,r,color,width=1,dashes=[]){ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.setLineDash(dashes);ctx.stroke();ctx.setLineDash([])}
 function textLabel(text,x,y,color='#c8dcf8',size=11,weight=700,alignment='center'){
  ctx.font=`${weight} ${size}px system-ui,-apple-system,sans-serif`;ctx.textAlign=alignment;ctx.textBaseline='middle';ctx.fillStyle='#020917';ctx.fillText(text,x+1,y+2);ctx.fillStyle=color;ctx.fillText(text,x,y);
 }
 function planetDraw(p,t){
- const q=p.id==='star'?{x:0,y:0}:orbitPos(p,t),pos=worldToScreen(q.x,q.y),radius=Math.max(6,p.r*view.scale),isTarget=p.id===target;
+ const q=p.id==='star'?{x:0,y:0}:orbitPos(p,t),pos=worldToScreen(q.x,q.y),radius=Math.max(6,p.r*camera.scale),isTarget=p.id===target;
  if(isTarget){
   const pulse=1.5*Math.sin(performance.now()*.0025);
   lineCircle(pos.x,pos.y,radius+11+pulse,'#9df4cc',1.45,[5,5]);
@@ -402,17 +488,18 @@ function planetDraw(p,t){
 }
 function render(){
  const W=view.width,H=view.height;if(!W||!H)return;
+ setCamera();
  ctx.fillStyle='#07101f';ctx.fillRect(0,0,W,H);
  const bg=ctx.createRadialGradient(view.cx,view.cy,10,view.cx,view.cy,Math.max(W,H)*.69);
  bg.addColorStop(0,'#142543');bg.addColorStop(.48,'#0a1930');bg.addColorStop(1,'#061021');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
  for(const s of stars){ctx.globalAlpha=s.opacity;ctx.fillStyle='#c4d8ff';ctx.fillRect(s.x,s.y,s.s,s.s)}ctx.globalAlpha=1;
  const center=worldToScreen(0,0),t=phase==='aiming'?0:simT;
- for(const p of PLANETS){lineCircle(center.x,center.y,p.orbit*view.scale,p.id==='home'?'#6283ad3b':'#7087ac2c',1,[3,5]);}
+ if(!localEncounter)for(const p of PLANETS){lineCircle(center.x,center.y,p.orbit*camera.scale,p.id==='home'?'#6283ad3b':'#7087ac2c',1,[3,5]);}
  if(target!=='star'){
   const p=getBody(target,t),loc=worldToScreen(p.x,p.y);
-  lineCircle(loc.x,loc.y,CAPTURE_RADIUS[target]*view.scale,'rgba(116,238,177,.65)',1.6,[5,4]);
+  lineCircle(loc.x,loc.y,CAPTURE_RADIUS[target]*camera.scale,'rgba(116,238,177,.65)',1.6,[5,4]);
  }
- if(localEncounter&&rocket){const o=orbitalElements(rocket,target);if(o&&o.energy<0&&Number.isFinite(o.apo)&&o.apo<ORBIT_LIMIT[target]*2){const p=getBody(target,t),loc=worldToScreen(p.x,p.y);lineCircle(loc.x,loc.y,o.apo*view.scale,'rgba(139,248,200,.23)',1,[2,6]);}}
+ if(localEncounter&&rocket&&!paused){const o=orbitalElements(rocket,target);if(o&&o.energy<0&&Number.isFinite(o.apo)&&o.apo<ORBIT_LIMIT[target]*2){const p=getBody(target,t),loc=worldToScreen(p.x,p.y);lineCircle(loc.x,loc.y,o.apo*camera.scale,'rgba(139,248,200,.23)',1,[2,6]);}}
  if(phase==='aiming'&&showPath&&path.length){
   ctx.beginPath();for(let i=0;i<path.length;i++){const s=worldToScreen(path[i].x,path[i].y);i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y)}
   ctx.strokeStyle='rgba(99,226,249,.62)';ctx.lineWidth=2.2;ctx.setLineDash([5,5]);ctx.stroke();ctx.setLineDash([]);
@@ -420,6 +507,35 @@ function render(){
    const spot=worldToScreen(previewCapture.x,previewCapture.y);
    lineCircle(spot.x,spot.y,6,previewCapture.required<=MAX_FUEL?'#78eab6':'#ffc36d',2.2);
   }else if(prediction){const end=worldToScreen(path[path.length-1].x,path[path.length-1].y),good=prediction.kind==='win';lineCircle(end.x,end.y,5,good?'#78eab6':'#f08e9e',2);}
+ }
+ if(phase==='flying'&&localEncounter&&paused&&showPath&&burnPreview){
+  const planet=getBody(target,t),loc=worldToScreen(planet.x,planet.y);
+  function drawPredictionLine(trace,color,dash,strokeWidth){
+   if(!trace||!trace.points.length)return;
+   ctx.beginPath();for(let i=0;i<trace.points.length;i++){
+    const xy=trace.points[i];const sx=loc.x+xy.dx*camera.scale,sy=loc.y+xy.dy*camera.scale;
+    i?ctx.lineTo(sx,sy):ctx.moveTo(sx,sy);
+   }
+   ctx.setLineDash(dash);ctx.strokeStyle=color;ctx.lineWidth=strokeWidth;ctx.stroke();ctx.setLineDash([]);
+  }
+  drawPredictionLine(burnPreview.coast,'rgba(170,182,200,.65)',[3,5],2);
+  if(burnPreview.after){
+   const rating=burnPreview.after.rating;
+   if(rating.status==='SAFE ORBIT'){
+    ctx.save();ctx.shadowColor='#49ebb6';ctx.shadowBlur=9;
+    drawPredictionLine(burnPreview.after,'rgba(67,222,247,.95)',[],2.8);
+    ctx.restore();
+   }else drawPredictionLine(burnPreview.after,'rgba(77,218,251,.95)',[],2.8);
+   const pts=burnPreview.after.extrema;
+   if(pts){
+    for(const [label,mark,offset] of [['Pe',pts.peri,-10],['Ap',pts.apo,12]]){
+     const x=loc.x+mark.dx*camera.scale,y=loc.y+mark.dy*camera.scale;
+     if(x<8||x>W-8||y<8||y>H-8)continue;
+     ctx.fillStyle=label==='Pe'?'#ffcf92':'#bce7ff';ctx.beginPath();ctx.arc(x,y,3.4,0,TAU);ctx.fill();
+     textLabel(`${label} ${Math.round(Math.hypot(mark.dx,mark.dy))}`,x,y+offset,label==='Pe'?'#ffcf92':'#bce7ff',10,850);
+    }
+   }
+  }
  }
  for(const p of PLANETS)planetDraw(p,t);
  planetDraw(STAR,t);
@@ -487,7 +603,7 @@ $('orbitButton').addEventListener('click',applyBurn);
 $('burnRange').addEventListener('input',e=>{burnPower=+e.target.value;updateControls()});
 for(const b of document.querySelectorAll('.burn-mode'))b.addEventListener('click',()=>{burnMode=b.dataset.mode;updateControls()});
 $('coastButton').addEventListener('click',()=>{if(phase==='flying'){paused=!paused;updateControls()}});
-$('togglePath').addEventListener('click',()=>{showPath=!showPath;$('togglePath').classList.toggle('selected',showPath);$('togglePath').setAttribute('aria-pressed',String(showPath))});
+$('togglePath').addEventListener('click',()=>{showPath=!showPath;$('togglePath').classList.toggle('selected',showPath);$('togglePath').setAttribute('aria-pressed',String(showPath));updateControls()});
 $('pauseButton').addEventListener('click',()=>{if(phase==='flying'){paused=!paused;updateControls()}});
 for(const id of ['aurora','cinder','star'])$('mission'+id[0].toUpperCase()+id.slice(1)).addEventListener('click',()=>chooseTarget(id));
 $('dialogRetry').addEventListener('click',resetFlight);$('dialogNext').addEventListener('click',nextTarget);
@@ -497,7 +613,8 @@ resize();predict();updateControls();requestAnimationFrame(frame);
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));
 // Expose a tiny diagnostic API for automated regression tests, not gameplay.
 window.__flightLab={getState:()=>({phase,target,angle,speed,simT,shots,wins:[...wins],prediction,
- fuel,paused,rocket,localEncounter,burnPower,burnMode,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture}),
+ fuel,paused,rocket,localEncounter,burnPower,burnMode,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
+ predicted:burnPreview?{coast:burnPreview.coast?.rating,after:burnPreview.after?.rating,points:burnPreview.after?.points.length,ending:burnPreview.after?.ending}:null,grades}),
  setAim:(a,v)=>{if(phase==='aiming')changeAim(a,v)},chooseTarget,resetFlight,
  setBurn:(mode,power)=>{burnMode=mode;burnPower=CLAMP(power,.5,20);updateControls()},
  applyBurn,advanceTest:(n=1)=>{for(let i=0;i<n&&phase==='flying'&&!paused;i++)tickPhysics(.055);updateControls();}};
