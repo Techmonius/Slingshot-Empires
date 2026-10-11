@@ -1,5 +1,5 @@
 {
-  "version": "0.8.0",
-  "displayVersion": "V0.8",
-  "notes": "Pinch-to-zoom, plus/minus/FIT map controls, and drag-to-pan in solar-system and orbit views."
+  "version": "0.8.1",
+  "displayVersion": "V0.8.1",
+  "notes": "Removed zoom buttons. Pinch-to-zoom and drag-to-pan remain supported."
 }
