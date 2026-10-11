@@ -38,12 +38,6 @@
     .viewport-actions{pointer-events:auto;display:flex;flex-direction:column;gap:6px}
     .iconbtn{border:1px solid rgba(142,172,222,.3);background:rgba(14,32,54,.86);color:#e9f4ff;border-radius:9px;min-width:37px;height:37px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;box-shadow:0 4px 20px #0003}
     .iconbtn.selected{background:rgba(50,118,165,.7);border-color:#60c9ee}
-    .map-zoom{position:absolute;right:12px;bottom:51px;display:flex;flex-direction:column;align-items:center;gap:5px;z-index:2;pointer-events:auto}
-    .map-zoom .zoom-button{width:39px;height:39px;padding:0;border:1px solid rgba(143,191,226,.47);border-radius:9px;background:rgba(13,34,57,.90);color:#e9f8ff;font-size:23px;font-weight:750;box-shadow:0 3px 12px #0004}
-    .map-zoom .zoom-fit{height:30px;font-size:10px;font-weight:850;letter-spacing:.05em}
-    .map-zoom output{font-size:10px;min-width:39px;text-align:center;line-height:1.1;padding:4px 2px;background:#06182de0;color:#c9eeff;border-radius:5px;font-variant-numeric:tabular-nums}
-    .map-zoom .zoom-button:disabled{opacity:.42}
-    @media(max-height:610px){.map-zoom{gap:3px;bottom:47px}.map-zoom .zoom-button{width:35px;height:34px}.map-zoom .zoom-fit{height:27px}}
     .arena-bottom{position:absolute;bottom:10px;left:12px;right:12px;display:flex;gap:6px;align-items:center;justify-content:space-between;pointer-events:none}
     .tip{color:#c1d4ee;font-size:11px;text-shadow:0 1px 3px #000;background:#0a182bbd;border-radius:7px;padding:7px 9px;max-width:85%}
     .time-chip{background:#0a182bcc;border-radius:7px;padding:7px 9px;color:#a1c9e7;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -131,7 +125,7 @@
 <body>
 <div class="app">
   <header class="top">
-    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.8</span></div></div>
+    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.8.1</span></div></div>
     <div class="stats"><div class="stat">Shots <strong id="shotCount">0</strong></div><div class="stat">Wins <strong id="winCount">0</strong>/3</div></div>
   </header>
   <main class="arena" id="arena" aria-label="Interactive solar system. Drag outward from the blue home planet to aim a rocket.">
@@ -139,12 +133,6 @@
     <div class="arena-top">
       <div class="objective"><div class="eyebrow">CURRENT MISSION</div><strong id="objectiveLabel">Orbit Aurora</strong><div class="hint-mini" id="objectiveHint">Reach its capture zone and burn</div></div>
       <div class="viewport-actions"><button id="togglePath" class="iconbtn selected" title="Toggle projected flight path" aria-label="Toggle projected flight path" aria-pressed="true">〰</button><button id="pauseButton" class="iconbtn" title="Pause or resume flight" aria-label="Pause or resume flight">Ⅱ</button></div>
-    </div>
-    <div class="map-zoom" aria-label="Map zoom controls">
-      <button id="zoomPlus" type="button" class="zoom-button" aria-label="Zoom map in">+</button>
-      <output id="zoomReadout" aria-label="Current zoom">1.0×</output>
-      <button id="zoomMinus" type="button" class="zoom-button" aria-label="Zoom map out">−</button>
-      <button id="zoomFit" type="button" class="zoom-button zoom-fit" aria-label="Reset map zoom and pan">FIT</button>
     </div>
     <div id="orbitViewTag" class="orbit-view-tag" hidden>PLANET-FRAME CAMERA</div>
     <div id="pathLegend" class="path-legend" hidden><span class="path-key"><i class="keyline"></i>Coast</span><span class="path-key"><i class="keyline after"></i>After burn</span><span>Pe / Ap = orbit extremes</span></div>
@@ -485,7 +473,7 @@ function tickPhysics(dt){
   const q=encounterFrame(rocket,target);
   if(q&&q.dist<CAPTURE_RADIUS[target]&&q.dist>q.p.r+3){
    localEncounter=true;encounterNotified=true;paused=true;accum=0;
-   mapViews.orbit={zoom:1,panX:0,panY:0};setCamera();updateZoomReadout();
+   mapViews.orbit={zoom:1,panX:0,panY:0};setCamera();
    stableSweep=0;lastPolar=Math.atan2(q.dy,q.dx);
    // Suggest a retrograde initial heading, but don't apply a burn automatically.
    const retro=burnVector(rocket,target,'brake');
@@ -532,11 +520,6 @@ function setCamera(){
   camera={x:p.x,y:p.y,scale:baseScale*map.zoom,cx:view.width*.5+map.panX,cy:view.height*.51+map.panY};
  }else camera={x:0,y:0,scale:view.scale*map.zoom,cx:view.cx+map.panX,cy:view.cy+map.panY};
 }
-function updateZoomReadout(){
- $('zoomReadout').textContent=currentMap().zoom.toFixed(1)+'×';
- $('zoomMinus').disabled=currentMap().zoom<=.5+1e-6;
- $('zoomPlus').disabled=currentMap().zoom>=6-1e-6;
-}
 function panMap(dx,dy){
  const map=currentMap();map.panX+=dx;map.panY+=dy;setCamera();
 }
@@ -548,11 +531,7 @@ function zoomMap(factor,anchorX=view.width/2,anchorY=view.height/2){
  map.panX+=(anchorX-camera.cx)*(1-ratio);
  map.panY+=(anchorY-camera.cy)*(1-ratio);
  map.zoom=next;
- setCamera();updateZoomReadout();
-}
-function fitMap(){
- const map=currentMap();map.zoom=1;map.panX=0;map.panY=0;
- setCamera();updateZoomReadout();
+ setCamera();
 }
 function worldToScreen(x,y){return {x:camera.cx+(x-camera.x)*camera.scale,y:camera.cy+(y-camera.y)*camera.scale}}
 function screenToWorld(x,y){return {x:(x-camera.cx)/camera.scale+camera.x,y:(y-camera.cy)/camera.scale+camera.y}}
@@ -754,9 +733,6 @@ canvas.addEventListener('wheel',e=>{
  zoomMap(Math.exp(-e.deltaY*.002),pt.x,pt.y);
  e.preventDefault();
 },{passive:false});
-$('zoomPlus').addEventListener('click',()=>zoomMap(1.35));
-$('zoomMinus').addEventListener('click',()=>zoomMap(1/1.35));
-$('zoomFit').addEventListener('click',fitMap);
 $('waitRange').addEventListener('input',e=>setWaitTime(+e.target.value));
 $('waitZero').addEventListener('click',()=>setWaitTime(0));
 for(const [id,dt] of [['waitMinusTen',-10],['waitMinusOne',-1],['waitPlusOne',1],['waitPlusTen',10]])$(id).addEventListener('click',()=>setWaitTime(waitTime+dt));
@@ -779,10 +755,10 @@ for(const id of ['aurora','cinder','star'])$('mission'+id[0].toUpperCase()+id.sl
 $('dialogRetry').addEventListener('click',resetFlight);$('dialogNext').addEventListener('click',nextTarget);
 window.addEventListener('resize',resize);
 if('ResizeObserver' in window)new ResizeObserver(resize).observe(arena);
-resize();setCamera();predict();updateControls();updateZoomReadout();requestAnimationFrame(frame);
+resize();setCamera();predict();updateControls();requestAnimationFrame(frame);
 // Check for new releases when the Home Screen app opens, resumes, and while it remains open.
 // Defer updates during a live flight so the player's maneuver is not interrupted.
-const APP_RELEASE='0.8.0';
+const APP_RELEASE='0.8.1';
 let checkingRelease=false, pendingRelease=null, applyingRelease=false;
 function applyPendingRelease(){
  if(!pendingRelease||phase==='flying'||applyingRelease)return;
@@ -828,7 +804,7 @@ window.__flightLab={getState:()=>({phase,target,angle,speed,simT,shots,wins:[...
  waitTime,launchEpoch,zoom:currentMap().zoom,panX:currentMap().panX,panY:currentMap().panY,viewMode:orbitCameraActive()?'orbit':'system',fuel,paused,rocket,localEncounter,burnPower,burnAngle,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
  predicted:burnPreview?{coast:burnPreview.coast?.rating,after:burnPreview.after?.rating,points:burnPreview.after?.points.length,ending:burnPreview.after?.ending}:null,grades}),
  setAim:(a,v)=>{if(phase==='aiming')changeAim(a,v)},setWaitTime,chooseTarget,resetFlight,
- setBurn:(a,power)=>{setBurnAngle(a);setBurnPower(power)},zoomMap,panMap,fitMap,
+ setBurn:(a,power)=>{setBurnAngle(a);setBurnPower(power)},zoomMap,panMap,
  applyBurn,advanceTest:(n=1)=>{for(let i=0;i<n&&phase==='flying'&&!paused;i++)tickPhysics(.055);updateControls();}};
 })();
 </script>
