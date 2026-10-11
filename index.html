@@ -673,27 +673,63 @@ function frame(ms){
 }
 function clickAt(clientX,clientY){const rect=canvas.getBoundingClientRect(),x=clientX-rect.left,y=clientY-rect.top;return {x,y}}
 function distance(x,y,q){return Math.hypot(x-q.x,y-q.y)}
+// One finger on HOME/rocket aims; one finger on empty space pans.
+// Two fingers always pinch to zoom, including if one began aiming a rocket.
 canvas.addEventListener('pointerdown',e=>{
- const {x,y}=clickAt(e.clientX,e.clientY);
+ const pt=clickAt(e.clientX,e.clientY);
+ pointers.set(e.pointerId,pt);
+ if(canvas.setPointerCapture)canvas.setPointerCapture(e.pointerId);
+ if(pointers.size>=2){
+  dragging=false;burnDragging=false;pointerId=null;panPointer=null;panLast=null;
+  suppressSingle=true;
+  const [p1,p2]=[...pointers.values()].slice(0,2);
+  pinch={dist:Math.max(1,Math.hypot(p2.x-p1.x,p2.y-p1.y)),x:(p1.x+p2.x)/2,y:(p1.y+p2.y)/2};
+  e.preventDefault();return;
+ }
+ if(suppressSingle)return;
+ const {x,y}=pt;
  if(phase==='flying'){
   if(localEncounter&&paused&&rocket&&target!=='star'){
    const ship=worldToScreen(rocket.x,rocket.y);
-   if(distance(x,y,ship)<43){burnDragging=true;pointerId=e.pointerId;canvas.setPointerCapture(e.pointerId);e.preventDefault();}
+   if(distance(x,y,ship)<Math.max(35,7*currentMap().zoom+25)){
+    burnDragging=true;pointerId=e.pointerId;e.preventDefault();return;
+   }
   }
-  return;
+  panPointer=e.pointerId;panLast=pt;e.preventDefault();return;
  }
- const home=orbitPos(PLANETS[0],waitTime),homeS=worldToScreen(home.x,home.y);
- if(distance(x,y,homeS)<Math.max(26,PLANETS[0].r*view.scale+15)){
-  if(phase!=='aiming')resetFlight();dragging=true;pointerId=e.pointerId;canvas.setPointerCapture(e.pointerId);e.preventDefault();return;
+ if(phase==='aiming'){
+  const home=orbitPos(PLANETS[0],waitTime),homeS=worldToScreen(home.x,home.y);
+  if(distance(x,y,homeS)<Math.max(26,PLANETS[0].r*camera.scale+15)){
+   dragging=true;pointerId=e.pointerId;e.preventDefault();return;
+  }
+  for(const id of ['aurora','cinder','star']){
+   const p=getBody(id,waitTime),pos=worldToScreen(p.x,p.y);
+   if(distance(x,y,pos)<Math.max(24,p.r*camera.scale+13)){chooseTarget(id);return;}
+  }
  }
- for(const id of ['aurora','cinder','star']){
-  const p=getBody(id,waitTime),pos=worldToScreen(p.x,p.y);
-  if(distance(x,y,pos)<Math.max(24,p.r*view.scale+13)){chooseTarget(id);return;}
- }
+ panPointer=e.pointerId;panLast=pt;e.preventDefault();
 });
 canvas.addEventListener('pointermove',e=>{
+ if(!pointers.has(e.pointerId))return;
+ const pt=clickAt(e.clientX,e.clientY);
+ pointers.set(e.pointerId,pt);
+ if(pointers.size>=2){
+  const [p1,p2]=[...pointers.values()].slice(0,2);
+  const dist=Math.max(1,Math.hypot(p2.x-p1.x,p2.y-p1.y)),midX=(p1.x+p2.x)/2,midY=(p1.y+p2.y)/2;
+  if(pinch){
+   zoomMap(dist/pinch.dist,pinch.x,pinch.y);
+   panMap(midX-pinch.x,midY-pinch.y);
+  }
+  pinch={dist,x:midX,y:midY};
+  e.preventDefault();return;
+ }
+ if(suppressSingle)return;
+ if(panPointer===e.pointerId){
+  if(panLast)panMap(pt.x-panLast.x,pt.y-panLast.y);
+  panLast=pt;e.preventDefault();return;
+ }
  if(pointerId!==e.pointerId||(!dragging&&!burnDragging))return;
- const {x,y}=clickAt(e.clientX,e.clientY);
+ const {x,y}=pt;
  if(burnDragging&&phase==='flying'&&localEncounter&&paused&&rocket){
   const ship=worldToScreen(rocket.x,rocket.y),dx=x-ship.x,dy=y-ship.y,dist=Math.hypot(dx,dy);
   if(dist>4)burnAngle=CLAMP(Math.round(Math.atan2(dy,dx)/RAD*10)/10,-180,180);
@@ -706,7 +742,21 @@ canvas.addEventListener('pointermove',e=>{
  }
  e.preventDefault();
 });
-for(const evt of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(evt,e=>{if(e.pointerId===pointerId){dragging=false;burnDragging=false;pointerId=null}});
+for(const evt of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(evt,e=>{
+ pointers.delete(e.pointerId);
+ if(e.pointerId===pointerId){dragging=false;burnDragging=false;pointerId=null}
+ if(e.pointerId===panPointer){panPointer=null;panLast=null}
+ if(pointers.size<2)pinch=null;
+ if(pointers.size===0)suppressSingle=false;
+});
+canvas.addEventListener('wheel',e=>{
+ const pt=clickAt(e.clientX,e.clientY);
+ zoomMap(Math.exp(-e.deltaY*.002),pt.x,pt.y);
+ e.preventDefault();
+},{passive:false});
+$('zoomPlus').addEventListener('click',()=>zoomMap(1.35));
+$('zoomMinus').addEventListener('click',()=>zoomMap(1/1.35));
+$('zoomFit').addEventListener('click',fitMap);
 $('waitRange').addEventListener('input',e=>setWaitTime(+e.target.value));
 $('waitZero').addEventListener('click',()=>setWaitTime(0));
 for(const [id,dt] of [['waitMinusTen',-10],['waitMinusOne',-1],['waitPlusOne',1],['waitPlusTen',10]])$(id).addEventListener('click',()=>setWaitTime(waitTime+dt));
@@ -775,10 +825,10 @@ if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
 }
 // Expose a tiny diagnostic API for automated regression tests, not gameplay.
 window.__flightLab={getState:()=>({phase,target,angle,speed,simT,shots,wins:[...wins],prediction,
- waitTime,launchEpoch,fuel,paused,rocket,localEncounter,burnPower,burnAngle,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
+ waitTime,launchEpoch,zoom:currentMap().zoom,panX:currentMap().panX,panY:currentMap().panY,viewMode:orbitCameraActive()?'orbit':'system',fuel,paused,rocket,localEncounter,burnPower,burnAngle,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
  predicted:burnPreview?{coast:burnPreview.coast?.rating,after:burnPreview.after?.rating,points:burnPreview.after?.points.length,ending:burnPreview.after?.ending}:null,grades}),
  setAim:(a,v)=>{if(phase==='aiming')changeAim(a,v)},setWaitTime,chooseTarget,resetFlight,
- setBurn:(a,power)=>{setBurnAngle(a);setBurnPower(power)},
+ setBurn:(a,power)=>{setBurnAngle(a);setBurnPower(power)},zoomMap,panMap,fitMap,
  applyBurn,advanceTest:(n=1)=>{for(let i=0;i<n&&phase==='flying'&&!paused;i++)tickPhysics(.055);updateControls();}};
 })();
 </script>
