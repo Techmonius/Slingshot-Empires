@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Slingshot">
   <meta name="description" content="A tiny orbital strategy game. Aim, launch, and intercept moving worlds.">
-  <meta property="og:title" content="Slingshot Empires — Prototype 0.8">
+  <meta property="og:title" content="Slingshot Empires — Prototype 0.9">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -80,6 +80,11 @@
     .tiny-steps button{min-width:0;min-height:29px;padding:2px 0;font-size:10px;font-weight:800;color:#c4dff5;background:#142d48;border:1px solid #2f4d68;border-radius:5px;touch-action:manipulation}
     .tiny-steps button:active{background:#285e7e}
     .burn-zero{color:#8ae2ff!important}
+    .apsis-controls{margin:8px 0 1px;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+    .apsis-controls button{min-width:0;min-height:35px;padding:5px 3px;background:#173654;border:1px solid #4482a4;border-radius:8px;color:#ccf0ff;font-size:11px;font-weight:850;letter-spacing:.015em}
+    .apsis-controls button:disabled{opacity:.38}
+    .apsis-status{min-height:13px;font-size:10px;line-height:1.3;color:#8cb9d9;margin:4px 0 0}
+    @media(max-height:700px){.apsis-controls{margin-top:5px}.apsis-controls button{min-height:29px;font-size:10px}.apsis-status{font-size:9px}}
     .angle-frame{font-size:9px;color:#819db7;line-height:1.25;margin-top:4px}
     .burn-readout{font-size:11px;color:#abcee4;line-height:1.4;margin:6px 0 0;font-variant-numeric:tabular-nums}
     .burn-readout.safe{color:#91f2bd}.burn-readout.danger{color:#ff9daf}.burn-readout.caution{color:#ffd38c}
@@ -125,7 +130,7 @@
 <body>
 <div class="app">
   <header class="top">
-    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.8.1</span></div></div>
+    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.9</span></div></div>
     <div class="stats"><div class="stat">Shots <strong id="shotCount">0</strong></div><div class="stat">Wins <strong id="winCount">0</strong>/3</div></div>
   </header>
   <main class="arena" id="arena" aria-label="Interactive solar system. Drag outward from the blue home planet to aim a rocket.">
@@ -186,6 +191,11 @@
         <div class="angle-frame">0° → right · 90° ↓ down · Drag from rocket to aim · <button id="burnZero" class="burn-zero" style="border:0;background:transparent;font-size:10px;padding:1px 4px;text-decoration:underline">Reset Δv to 0</button></div>
         <div class="burn-readout" id="burnPrediction">Adjust burn direction and magnitude to preview your orbit.</div>
         <div class="grade-line" id="gradeLine"><strong class="grade-mark" id="gradeMark">—</strong><span class="grade-copy" id="gradeText">Proposed orbit quality • future extraction potential</span></div>
+        <div class="apsis-controls" aria-label="Coast to an orbital maneuver point">
+          <button id="waitPeri" aria-label="Wait until next periapsis">⏩ WAIT TO PERIAPSIS</button>
+          <button id="waitApo" aria-label="Wait until next apoapsis">⏩ WAIT TO APOAPSIS</button>
+        </div>
+        <div class="apsis-status" id="apsisStatus" aria-live="polite">Choose an apsis to coast there without fuel.</div>
       </div>
       <div id="orbitTelemetry"></div>
       <div class="action-row"><button id="orbitButton" class="primary" disabled>WAIT FOR ENCOUNTER</button><button id="coastButton" class="secondary">PAUSE</button></div>
@@ -252,6 +262,57 @@ function localAdvance(r,dt,id){
  const nvy=q.uy+.5*(factor*q.dy+nf*ry)*dt;
  return {x:np.x+rx,y:np.y+ry,vx:np.vx+nvx,vy:np.vy+nvy,t:r.t+dt};
 }
+
+// Find reachable turning points by integrating the same equations as active flight.
+// Apsides are radial-velocity zero crossings: Pe is inward->outward; Ap outward->inward.
+function apsisForecast(){
+ if(apsisCacheRocket===rocket&&apsisCache)return apsisCache;
+ const results={peri:null,apo:null};
+ apsisCacheRocket=rocket;apsisCache=results;
+ if(phase!=='flying'||!localEncounter||!rocket||target==='star')return results;
+ const o=orbitalElements(rocket,target);
+ if(o.ecc<.02){results.peri={reason:'Nearly circular'};results.apo={reason:'Nearly circular'};return results;}
+ if(o.energy>=0){
+  results.apo={reason:'Escape path has no apoapsis'};
+  if(o.radial>=0)results.peri={reason:'Periapsis already passed'};
+ }
+ const step=.055,maximum=Math.max(0,Math.min(220,279-(rocket.t-launchEpoch)));
+ let state=rocket,travel=0;
+ for(let i=0;travel<maximum-1e-8&&(!results.peri||!results.apo);i++){
+  const dt=Math.min(step,maximum-travel),before=encounterFrame(state,target);
+  const next=localAdvance(state,dt,target),after=encounterFrame(next,target);
+  const collision=checkCollision(next);
+  if(collision){
+   for(const key of ['peri','apo'])if(!results[key])results[key]={reason:'Impact or escape before this point'};
+   break;
+  }
+  if(travel>.12){
+   for(const [key,cross] of [['peri',before.radial<0&&after.radial>=0],['apo',before.radial>0&&after.radial<=0]]){
+    if(results[key]||!cross)continue;
+    let low=0,high=dt;
+    for(let k=0;k<15;k++){
+     const mid=(low+high)/2;
+     const radial=encounterFrame(localAdvance(state,mid,target),target).radial;
+     if(key==='peri'?(radial>=0):(radial<=0))high=mid;else low=mid;
+    }
+    results[key]={eta:travel+(low+high)/2};
+   }
+  }
+  state=next;travel+=dt;
+ }
+ for(const key of ['peri','apo'])if(!results[key])results[key]={reason:'No reachable point before timeout'};
+ return results;
+}
+function waitToApsis(kind){
+ if(phase!=='flying'||!localEncounter||!paused||target==='star'||warpTarget)return;
+ const prediction=apsisForecast()[kind];
+ if(!prediction||!Number.isFinite(prediction.eta))return;
+ warpTarget=kind;warpStop=rocket.t+prediction.eta;
+ paused=false;accum=0;updateControls();
+}
+function stopWarp(){
+ warpTarget=null;warpStop=null;paused=true;accum=0;updateControls();
+}
 // Orbit quality is a GAMEPLAY HEURISTIC, not a claim about real extraction physics.
 // A safe, low-eccentricity, moderately low orbit scores best. Mining modifiers come later.
 function orbitRating(o,id){
@@ -309,7 +370,7 @@ function readSaved(){
  }catch{return {shots:0,wins:[],grades:{}}}
 }
 const saved=readSaved();
-let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,target='aurora',angle=28,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,burnDragging=false,rocket=null,simT=0,waitTime=0,launchEpoch=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=0,burnAngle=0,burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
+let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,target='aurora',angle=28,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,burnDragging=false,rocket=null,simT=0,waitTime=0,launchEpoch=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=0,burnAngle=0,warpTarget=null,warpStop=null,apsisCacheRocket=null,apsisCache=null,burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
 function store(){try{localStorage.setItem(DATA_KEY,JSON.stringify({shots,wins:[...wins],grades}))}catch{}}
 function orbitPos(p,t){const omega=Math.sqrt(MU_STAR/(p.orbit**3));const q=p.phase+omega*t;return {x:p.orbit*Math.cos(q),y:p.orbit*Math.sin(q),vx:-p.orbit*omega*Math.sin(q),vy:p.orbit*omega*Math.cos(q)}}
 function bodiesAt(t){return PLANETS.map(p=>({...p,...orbitPos(p,t)}))}
@@ -421,7 +482,7 @@ function updateControls(){
  for(const id of ['aurora','cinder','star'])$('mission'+id[0].toUpperCase()+id.slice(1)).style.color=id===target?'#e5fbff':'#7fa3c2';
 }
 function chooseTarget(id){if(!MISSION[id])return;target=id;resetFlight();}
-function resetFlight(){phase='aiming';rocket=null;simT=waitTime;launchEpoch=waitTime;paused=false;accum=0;result=null;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;$('resultShade').classList.remove('show');predict();updateControls();applyPendingRelease();}
+function resetFlight(){phase='aiming';warpTarget=null;warpStop=null;apsisCacheRocket=null;apsisCache=null;rocket=null;simT=waitTime;launchEpoch=waitTime;paused=false;accum=0;result=null;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;$('resultShade').classList.remove('show');predict();updateControls();applyPendingRelease();}
 function changeAim(nextAngle,nextSpeed){angle=CLAMP(Math.round(nextAngle*10)/10,-180,180);speed=CLAMP(Math.round(nextSpeed*10)/10,0,65);predict();updateControls();}
 function setWaitTime(t){if(phase!=='aiming')return;waitTime=CLAMP(Math.round(t*2)/2,0,120);launchEpoch=waitTime;simT=waitTime;predict();updateControls();}
 function setBurnPower(nextPower){burnPower=Math.round(CLAMP(nextPower,0,Math.min(20,fuel))*100)/100;updateControls();}
@@ -429,10 +490,11 @@ function setBurnAngle(nextAngle){burnAngle=CLAMP(Math.round(nextAngle*10)/10,-18
 function launch(){
  if(phase==='flying')return;
  if(phase!=='aiming'){resetFlight();}
- shots++;store();launchEpoch=waitTime;rocket=startRocket();simT=launchEpoch;phase='flying';paused=false;accum=0;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;updateControls();
+ shots++;store();warpTarget=null;warpStop=null;apsisCacheRocket=null;apsisCache=null;launchEpoch=waitTime;rocket=startRocket();simT=launchEpoch;phase='flying';paused=false;accum=0;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;updateControls();
 }
 const trail=[];
 function endFlight(outcome){
+ warpTarget=null;warpStop=null;
  phase=outcome.kind==='win'?'won':'lost';result=outcome;
  if(phase==='won'){
   wins.add(target);
@@ -452,7 +514,7 @@ function endFlight(outcome){
  $('resultShade').classList.add('show');
 }
 function applyBurn(){
- if(phase!=='flying'||!localEncounter||target==='star'||burnPower<=0||fuel<=0)return;
+ if(phase!=='flying'||!localEncounter||!paused||warpTarget||target==='star'||burnPower<=0||fuel<=0)return;
  const burn=proposedBurn();if(!burn)return;
  const dv=Math.min(fuel,burnPower);fuel=Math.max(0,Math.round((fuel-dv)*100)/100);rocket=burn;
   burnPower=Math.min(burnPower,fuel);
