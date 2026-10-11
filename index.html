@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Slingshot">
   <meta name="description" content="A tiny orbital strategy game. Aim, launch, and intercept moving worlds.">
-  <meta property="og:title" content="Slingshot Empires — Prototype 0.2">
+  <meta property="og:title" content="Slingshot Empires — Prototype 0.3">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -62,6 +62,20 @@
     .primary:disabled{opacity:.5;filter:grayscale(.6);box-shadow:none}
     .secondary{background:#182a43;border:1px solid #334865;border-radius:12px;color:#d6e5fa;min-width:92px;padding:0 14px;min-height:48px;font-size:12px;font-weight:800}
     .flight-panel{margin-bottom:0}
+    .burn-planner{margin-bottom:8px;padding:10px;border-radius:11px;background:#0b1b30;border:1px solid #30516b}
+    .burn-title{font-size:10px;letter-spacing:.08em;font-weight:800;color:#bce7ff;display:flex;justify-content:space-between;gap:6px;margin-bottom:6px}
+    .burn-title span{color:#ffcf86;font-variant-numeric:tabular-nums}
+    .burn-modes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin-bottom:7px}
+    .burn-mode{min-height:32px;min-width:0;border-radius:7px;border:1px solid #36516d;background:#152b46;color:#bcd2ed;font-size:10px;font-weight:750;padding:2px 1px}
+    .burn-mode.selected{color:#071a26;background:#8ae2ff;border-color:#a7f2ff}
+    .burn-readout{font-size:10px;color:#abcee4;line-height:1.45;margin:4px 0 0;font-variant-numeric:tabular-nums}
+    #orbitTelemetry{font-size:10px;color:#bcdbef;margin:0 0 8px;line-height:1.4;min-height:14px;font-variant-numeric:tabular-nums}
+    .burn-control{display:flex;align-items:center;gap:8px;font-size:11px;color:#adcce8}
+    .burn-control output{min-width:43px;text-align:right;color:#fff;font-weight:850;font-variant-numeric:tabular-nums}
+    .burn-control input{flex:1;min-width:0}
+    .flight-panel .action-row{grid-template-columns:1fr auto}
+    @media(max-height:700px){.burn-planner{padding:7px;margin-bottom:5px}.burn-modes{margin-bottom:4px}.burn-mode{min-height:27px}.burn-readout{font-size:9px}.fuel-track{margin-bottom:6px}}
+
     [hidden]{display:none!important}
     .fuel-line{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;color:#9fb6da;margin-bottom:6px;min-height:19px}
     .fuel-line strong{color:#eafff7;font-size:14px}
@@ -90,7 +104,7 @@
 <body>
 <div class="app">
   <header class="top">
-    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.2</span></div></div>
+    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.3</span></div></div>
     <div class="stats"><div class="stat">Shots <strong id="shotCount">0</strong></div><div class="stat">Wins <strong id="winCount">0</strong>/3</div></div>
   </header>
   <main class="arena" id="arena" aria-label="Interactive solar system. Drag outward from the blue home planet to aim a rocket.">
@@ -111,12 +125,24 @@
     <div id="flightPanel" class="flight-panel" hidden>
       <div class="fuel-line"><span>FUEL <strong id="fuelValue">30.0 Δv</strong></span><span id="captureValue">Find the target's gravity well</span></div>
       <div class="fuel-track"><div id="fuelBar" class="fuel-fill"></div></div>
-      <div class="action-row"><button id="orbitButton" class="primary" disabled>ENTER CAPTURE ZONE</button><button id="coastButton" class="secondary">PAUSE</button></div>
+      <div id="burnPlanner" class="burn-planner" hidden>
+        <div class="burn-title">MANUAL THRUSTER <span id="burnCost">Fuel cost 4.0</span></div>
+        <div class="burn-modes">
+          <button class="burn-mode selected" data-mode="brake" aria-pressed="true">BRAKE</button>
+          <button class="burn-mode" data-mode="boost" aria-pressed="false">BOOST</button>
+          <button class="burn-mode" data-mode="in" aria-pressed="false">RADIAL −</button>
+          <button class="burn-mode" data-mode="out" aria-pressed="false">RADIAL +</button>
+        </div>
+        <label class="burn-control" for="burnRange">Burn Δv <input id="burnRange" type="range" min="0.5" max="20" step="0.5" value="4"><output id="burnValue">4.0</output></label>
+        <div class="burn-readout" id="burnPrediction">Choose a direction and amount, then apply your burn.</div>
+      </div>
+      <div id="orbitTelemetry"></div>
+      <div class="action-row"><button id="orbitButton" class="primary" disabled>WAIT FOR ENCOUNTER</button><button id="coastButton" class="secondary">PAUSE</button></div>
     </div>
     <div class="mission-link">Target: <button id="missionAurora">Aurora</button> · <button id="missionCinder">Cinder</button> · <button id="missionStar">Star</button></div>
   </section>
   <div class="shade" id="resultShade" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
-    <div class="dialog"><div id="dialogSymbol" class="dialog-symbol">✦</div><div class="eyebrow" id="dialogEyebrow">FLIGHT COMPLETE</div><h2 id="dialogTitle">Mission accomplished</h2><p id="dialogDetail"></p><div class="dialog-btns"><button class="secondary" id="dialogRetry">TRY AGAIN</button><button class="primary" id="dialogNext">NEXT TARGET</button></div><small>Capture burn matches the planet-relative circular-orbit velocity. A local two-body approximation is used after insertion.</small></div>
+    <div class="dialog"><div id="dialogSymbol" class="dialog-symbol">✦</div><div class="eyebrow" id="dialogEyebrow">FLIGHT COMPLETE</div><h2 id="dialogTitle">Mission accomplished</h2><p id="dialogDetail"></p><div class="dialog-btns"><button class="secondary" id="dialogRetry">TRY AGAIN</button><button class="primary" id="dialogNext">NEXT TARGET</button></div><small>Burns are controlled by you. Inside the encounter zone the ship follows a planet-relative two-body model; getting a safe orbit takes piloting.</small></div>
   </div>
 </div>
 <script>
@@ -129,31 +155,62 @@ const PLANETS=[
  {id:'aurora',name:'Aurora',orbit:250,phase:29*RAD,r:18,mu:1050,color:'#78e0bc',atmosphere:'#367e9b'},
  {id:'cinder',name:'Cinder',orbit:117,phase:-65*RAD,r:15,mu:750,color:'#f0aa7e',atmosphere:'#cd5861'}
 ];
-const MISSION={aurora:{name:'Aurora',hint:'Enter the green ring, then burn into orbit',success:'Aurora orbit secured. Your first orbital outpost is established.'},cinder:{name:'Cinder',hint:'Capture into orbit without hitting the surface',success:'Cinder orbit secured. You mastered the inner system.'},star:{name:'Star',hint:'Dive into the star (experimental target)',success:'Stellar impact! That ship will not be coming home.'}};
-const DATA_KEY='slingshot-flight-lab-v02',OLD_DATA_KEY='slingshot-flight-lab-v01';
+const MISSION={aurora:{name:'Aurora',hint:'Enter the green zone, fly and burn into orbit',success:'Aurora orbit secured. Your first orbital outpost is established.'},cinder:{name:'Cinder',hint:'Brake manually, avoid impact, complete an orbit',success:'Cinder orbit secured. You mastered the inner system.'},star:{name:'Star',hint:'Dive into the star (experimental target)',success:'Stellar impact! That ship will not be coming home.'}};
+const DATA_KEY='slingshot-flight-lab-v03',OLD_DATA_KEY='slingshot-flight-lab-v02',FIRST_DATA_KEY='slingshot-flight-lab-v01';
 const MAX_FUEL=30;
 const CAPTURE_RADIUS={aurora:46,cinder:37};
-// Arrival uses a patched-conic circularization burn: the local planet dominates after insertion.
-function captureSolution(r,id){
- if(!r||id==='star'||!CAPTURE_RADIUS[id])return null;
- const p=getBody(id,r.t),dx=r.x-p.x,dy=r.y-p.y,dist=Math.hypot(dx,dy);
- if(dist<=p.r+4||dist>CAPTURE_RADIUS[id])return null;
- const relVx=r.vx-p.vx,relVy=r.vy-p.vy;
- const sign=dx*relVy-dy*relVx>=0?1:-1;
- const circleSpeed=Math.sqrt(p.mu/dist);
- const idealVx=p.vx+sign*(-dy/dist)*circleSpeed;
- const idealVy=p.vy+sign*(dx/dist)*circleSpeed;
- return {dist,sign,idealVx,idealVy,required:Math.hypot(idealVx-r.vx,idealVy-r.vy),planet:p};
+const ORBIT_LIMIT={aurora:72,cinder:58};
+// Within the encounter zone, use continuous two-body integration in the planet's moving frame.
+// There is NO velocity snap, guaranteed orbit, or scripted orbit animation.
+function encounterFrame(r,id){
+ if(!r||id==='star')return null;
+ const p=getBody(id,r.t),dx=r.x-p.x,dy=r.y-p.y;
+ const ux=r.vx-p.vx,uy=r.vy-p.vy,dist=Math.hypot(dx,dy);
+ const radial=(dx*ux+dy*uy)/Math.max(dist,1);
+ const tangent=(dx*uy-dy*ux)/Math.max(dist,1);
+ return {p,dx,dy,ux,uy,dist,radial,tangent,circle:Math.sqrt(p.mu/Math.max(dist,1))};
+}
+function orbitalElements(r,id){
+ const q=encounterFrame(r,id);if(!q)return null;
+ const {p,dist,ux,uy,dx,dy}=q;
+ const h=dx*uy-dy*ux,energy=(ux*ux+uy*uy)/2-p.mu/Math.max(dist,1);
+ const ecc=Math.sqrt(Math.max(0,1+2*energy*h*h/(p.mu*p.mu)));
+ const peri=(h*h/p.mu)/(1+ecc),apo=ecc<1? (h*h/p.mu)/(1-ecc):Infinity;
+ return {...q,energy,ecc,peri,apo,stable:energy<0&&peri>p.r+3&&apo<ORBIT_LIMIT[id]};
+}
+function burnVector(r,id,mode){
+ const q=encounterFrame(r,id);if(!q||q.dist<1)return null;
+ const direction=q.tangent>=0?1:-1;
+ if(mode==='brake')return {x:direction*q.dy/q.dist,y:-direction*q.dx/q.dist};
+ if(mode==='boost')return {x:-direction*q.dy/q.dist,y:direction*q.dx/q.dist};
+ if(mode==='in')return {x:-q.dx/q.dist,y:-q.dy/q.dist};
+ return {x:q.dx/q.dist,y:q.dy/q.dist};
+}
+function proposedBurn(){
+ if(!localEncounter||!rocket||target==='star')return null;
+ const dir=burnVector(rocket,target,burnMode),dv=Math.min(burnPower,fuel);
+ if(!dir||dv<=0)return null;
+ return {...rocket,vx:rocket.vx+dir.x*dv,vy:rocket.vy+dir.y*dv};
+}
+function localAdvance(r,dt,id){
+ const q=encounterFrame(r,id),rmag=Math.max(2,q.dist),factor=-q.p.mu/(rmag*rmag*rmag);
+ const rx=q.dx+q.ux*dt+.5*factor*q.dx*dt*dt;
+ const ry=q.dy+q.uy*dt+.5*factor*q.dy*dt*dt;
+ const nr=Math.max(2,Math.hypot(rx,ry)),nf=-q.p.mu/(nr*nr*nr),np=getBody(id,r.t+dt);
+ const nvx=q.ux+.5*(factor*q.dx+nf*rx)*dt;
+ const nvy=q.uy+.5*(factor*q.dy+nf*ry)*dt;
+ return {x:np.x+rx,y:np.y+ry,vx:np.vx+nvx,vy:np.vy+nvy,t:r.t+dt};
 }
 function readSaved(){
  try{
-  const newer=localStorage.getItem(DATA_KEY),s=JSON.parse(newer||localStorage.getItem(OLD_DATA_KEY)||'{}');
+  const newer=localStorage.getItem(DATA_KEY),previous=localStorage.getItem(OLD_DATA_KEY);
+  const s=JSON.parse(newer||previous||localStorage.getItem(FIRST_DATA_KEY)||'{}');
   return {shots:Number.isFinite(s.shots)?s.shots:0,
-   wins:Array.isArray(s.wins)?s.wins.filter(x=>MISSION[x]&&(newer||x==='star')):[]};
+   wins:Array.isArray(s.wins)?s.wins.filter(x=>MISSION[x]&&(newer||previous||x==='star')):[]};
  }catch{return {shots:0,wins:[]}}
 }
 const saved=readSaved();
-let shots=saved.shots,wins=new Set(saved.wins),target='aurora',angle=28,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,rocket=null,simT=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,orbitState=null,orbitWall=0;
+let shots=saved.shots,wins=new Set(saved.wins),target='aurora',angle=28,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,rocket=null,simT=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=4,burnMode='brake',burnCount=0,stableSweep=0,lastPolar=null;
 function store(){try{localStorage.setItem(DATA_KEY,JSON.stringify({shots,wins:[...wins]}))}catch{}}
 function orbitPos(p,t){const omega=Math.sqrt(MU_STAR/(p.orbit**3));const q=p.phase+omega*t;return {x:p.orbit*Math.cos(q),y:p.orbit*Math.sin(q),vx:-p.orbit*omega*Math.sin(q),vy:p.orbit*omega*Math.cos(q)}}
 function bodiesAt(t){return PLANETS.map(p=>({...p,...orbitPos(p,t)}))}
@@ -177,7 +234,11 @@ function checkCollision(r){
  if(Math.hypot(r.x,r.y)<STAR.r+2)return {kind:target==='star'?'win':'lost',hit:'star',label:'The ship fell into the star.'};
  for(const p of PLANETS){const q=orbitPos(p,r.t);if(Math.hypot(r.x-q.x,r.y-q.y)<p.r+3){return {kind:'lost',hit:p.id,label:p.id==='home'?'The rocket returned to HOME.':`The ship crashed into ${p.name}. Try a wider approach before braking.`};}}
  if(Math.hypot(r.x,r.y)>510)return {kind:'lost',hit:'escape',label:'The ship escaped the system.'};
- if(r.t>100)return {kind:'lost',hit:'timeout',label:'No intercept within 100 simulated seconds.'};
+ if(r.t>(localEncounter?280:100))return {kind:'lost',hit:'timeout',label:'You ran out of flight time before completing the orbit.'};
+ if(localEncounter&&target!=='star'){
+  const o=orbitalElements(r,target);
+  if(o&&o.dist>ORBIT_LIMIT[target]*1.5)return {kind:'lost',hit:'escape',label:`The rocket flew outside ${o.p.name}'s operational capture region.`};
+ }
  return null;
 }
 function predict(){
@@ -187,8 +248,11 @@ function predict(){
  points.push({x:r.x,y:r.y});
  for(let i=0;i<STEPS;i++){
   r=advance(r,DT);if(i%3===0)points.push({x:r.x,y:r.y});
-  const solution=captureSolution(r,target);
-  if(solution&&(!approach||solution.required<approach.required))approach={x:r.x,y:r.y,required:solution.required,dist:solution.dist};
+  const q=encounterFrame(r,target);
+  if(q&&q.dist>q.p.r+4&&q.dist<CAPTURE_RADIUS[target]){
+   const required=Math.hypot(q.radial,q.circle-Math.abs(q.tangent));
+   if(!approach||required<approach.required)approach={x:r.x,y:r.y,required,dist:q.dist};
+  }
   outcome=checkCollision(r);if(outcome)break;
  }
  path=points;prediction=outcome;previewCapture=approach;
@@ -201,39 +265,50 @@ function updateControls(){
  $('clock').textContent=`T + ${simT.toFixed(1)}s`;
  $('objectiveLabel').textContent=`${target==='star'?'Impact':'Orbit'} ${MISSION[target].name}`;
  $('objectiveHint').textContent=MISSION[target].hint;
- $('controlTitle').textContent=phase==='aiming'?'Launch parameters':phase==='flying'?'Orbit insertion':phase==='orbiting'?'Establishing orbit':'Flight complete';
- $('controlSub').textContent=phase==='aiming'?'Relative to moving HOME planet':phase==='flying'?(paused?'Capture zone reached — choose a burn or coast':'Approach target; spend fuel to capture'):phase==='orbiting'?'Burn complete — circling the planet':'Adjust launch parameters to retry';
- $('statusPill').textContent=phase==='aiming'?'READY':phase==='flying'?(paused?'PAUSED':'IN FLIGHT'):phase==='orbiting'?'IN ORBIT':(phase==='won'?'SUCCESS':'LOST');
- $('statusPill').className='status-pill '+(['flying','orbiting'].includes(phase)?'moving':phase==='won'?'won':phase==='lost'?'lost':'');
- const disable=phase==='flying'||phase==='orbiting';for(const id of ['angleRange','speedRange','angleMinus','anglePlus','speedMinus','speedPlus'])$(id).disabled=disable;
+ $('controlTitle').textContent=phase==='aiming'?'Launch parameters':phase==='flying'?'Manual orbital capture':'Flight complete';
+ $('controlSub').textContent=phase==='aiming'?'Relative to moving HOME planet':phase==='flying'?(localEncounter?'Pilot the burn; safe orbit requires a full revolution':'Approach the target capture zone'):'Adjust launch parameters to retry';
+ $('statusPill').textContent=phase==='aiming'?'READY':phase==='flying'?(paused?'PAUSED':'IN FLIGHT'):(phase==='won'?'SUCCESS':'LOST');
+ $('statusPill').className='status-pill '+(phase==='flying'?'moving':phase==='won'?'won':phase==='lost'?'lost':'');
+ const disable=phase==='flying';for(const id of ['angleRange','speedRange','angleMinus','anglePlus','speedMinus','speedPlus'])$(id).disabled=disable;
  $('planningPanel').hidden=disable;
  $('flightPanel').hidden=!disable;
+ $('burnPlanner').hidden=!(phase==='flying'&&localEncounter&&target!=='star');
  $('fuelValue').textContent=`${fuel.toFixed(1)} Δv`;
  $('fuelBar').style.width=`${100*fuel/MAX_FUEL}%`;
- const solution=phase==='flying'?captureSolution(rocket,target):null;
- if(phase==='orbiting'){
-  $('captureValue').textContent='CIRCULAR ORBIT';
-  $('orbitButton').textContent='✓ INSERTION COMPLETE';$('orbitButton').disabled=true;
-  $('coastButton').textContent=paused?'RESUME':'PAUSE';$('coastButton').disabled=false;
- }else if(phase==='flying'){
-  const affordable=!!solution&&solution.required<=fuel+1e-7;
-  $('captureValue').textContent=solution?`Burn needs ${solution.required.toFixed(1)} Δv`:(target==='star'?'Stellar impact mission':'Find the target ring');
-  $('orbitButton').disabled=!affordable;
-  $('orbitButton').textContent=affordable?'✦ BURN TO ORBIT':solution?'NOT ENOUGH FUEL':'ENTER CAPTURE ZONE';
-  $('coastButton').textContent=paused?'COAST':'PAUSE';$('coastButton').disabled=false;
+ if(phase==='flying'){
+  $('coastButton').textContent=paused?'COAST ▶':'PAUSE';$('coastButton').disabled=false;
+  if(localEncounter&&target!=='star'){
+   const orbital=orbitalElements(rocket,target),trial=proposedBurn(),newOrbit=trial?orbitalElements(trial,target):null;
+   $('captureValue').textContent=orbital.stable?`SAFE ORBIT · ${Math.floor(100*Math.min(1,stableSweep/TAU))}%`:`${burnCount} burn${burnCount===1?'':'s'} · ADJUST ORBIT`;
+   $('orbitTelemetry').textContent=`RADIAL ${orbital.radial.toFixed(1)} · SIDEWAYS ${orbital.tangent.toFixed(1)} · CIRCLE ${orbital.circle.toFixed(1)} Δv`;
+   const metric=newOrbit&&Number.isFinite(newOrbit.apo)?`Peri ${newOrbit.peri.toFixed(0)} / Apo ${newOrbit.apo.toFixed(0)}`:
+    (newOrbit?`Peri ${newOrbit.peri.toFixed(0)} / ESCAPE`:'No fuel');
+   $('burnPrediction').textContent=`Post-burn: ${metric}${newOrbit&&newOrbit.stable?' · SAFE ORBIT':''}`;
+   $('burnCost').textContent=`Fuel cost ${Math.min(burnPower,fuel).toFixed(1)} / ${fuel.toFixed(1)}`;
+   $('burnValue').textContent=burnPower.toFixed(1);
+   $('burnRange').max=Math.max(.5,Math.min(20,fuel));
+   $('burnRange').value=Math.min(burnPower,Math.max(.5,fuel));
+   $('orbitButton').disabled=fuel<.49;
+   $('orbitButton').textContent='🔥 APPLY BURN';
+  }else{
+   $('orbitTelemetry').textContent='';
+   $('captureValue').textContent=target==='star'?'Stellar impact mission':'Enter the green encounter zone';
+   $('orbitButton').disabled=true;$('orbitButton').textContent='WAIT FOR ENCOUNTER';
+  }
  }
  $('launchButton').disabled=disable;$('launchButton').textContent=disable?'● IN FLIGHT':phase==='aiming'?'▶ LAUNCH ROCKET':'▶ FLY AGAIN';
  $('pauseButton').textContent=paused?'▶':'Ⅱ';$('pauseButton').title=paused?'Resume flight':'Pause flight';
- $('touchTip').textContent=phase==='aiming'?(target==='star'?'Aim to hit the star':'Aim past the planet, not directly into it'):phase==='flying'?(paused?'Orbit burn matches circular velocity · COAST to wait':'Green ring = possible capture · Burn costs fuel'):phase==='orbiting'?'Orbit insertion successful · Completing one revolution':'Adjust and retry, or choose another target';
+ $('touchTip').textContent=phase==='aiming'?(target==='star'?'Aim to hit the star':'Aim past the planet, not directly into it'):phase==='flying'?(localEncounter?(paused?'Pick burn direction + fuel, then COAST':'Pause to plan another burn'): 'Approach the green ring to begin manual capture'):'Adjust and retry, or choose another target';
  for(const id of ['aurora','cinder','star'])$('mission'+id[0].toUpperCase()+id.slice(1)).style.color=id===target?'#e5fbff':'#7fa3c2';
+ for(const b of document.querySelectorAll('.burn-mode')){const selected=b.dataset.mode===burnMode;b.classList.toggle('selected',selected);b.setAttribute('aria-pressed',String(selected));}
 }
 function chooseTarget(id){if(!MISSION[id])return;target=id;resetFlight();}
-function resetFlight(){phase='aiming';rocket=null;simT=0;paused=false;accum=0;result=null;fuel=MAX_FUEL;encounterNotified=false;orbitState=null;orbitWall=0;trail.length=0;$('resultShade').classList.remove('show');predict();updateControls();}
+function resetFlight(){phase='aiming';rocket=null;simT=0;paused=false;accum=0;result=null;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnCount=0;stableSweep=0;lastPolar=null;trail.length=0;$('resultShade').classList.remove('show');predict();updateControls();}
 function changeAim(nextAngle,nextSpeed){angle=CLAMP(Math.round(nextAngle),-180,180);speed=CLAMP(Math.round(nextSpeed*2)/2,8,65);predict();updateControls();}
 function launch(){
  if(phase==='flying')return;
  if(phase!=='aiming'){resetFlight();}
- shots++;store();rocket=startRocket();simT=0;phase='flying';paused=false;accum=0;fuel=MAX_FUEL;encounterNotified=false;orbitState=null;orbitWall=0;trail.length=0;updateControls();
+ shots++;store();rocket=startRocket();simT=0;phase='flying';paused=false;accum=0;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnCount=0;stableSweep=0;lastPolar=null;trail.length=0;updateControls();
 }
 const trail=[];
 function endFlight(outcome){
@@ -243,21 +318,46 @@ function endFlight(outcome){
  $('dialogSymbol').textContent=phase==='won'?'✦':'↯';
  $('dialogSymbol').style.color=phase==='won'?'#79e9b8':'#ff849d';
  $('dialogEyebrow').textContent=phase==='won'?'MISSION COMPLETE':'FLIGHT FAILED';
- $('dialogTitle').textContent=phase==='won'?(target==='star'?'Stellar impact!':'Orbital insertion successful!'):'Flight failed';
+ $('dialogTitle').textContent=phase==='won'?(target==='star'?'Stellar impact!':'Stable orbit achieved!'):'Flight failed';
  $('dialogDetail').textContent=phase==='won'?`${MISSION[target].success} Flight time: ${simT.toFixed(1)}s. Fuel left: ${fuel.toFixed(1)} Δv.`:`${outcome.label} Try a new angle or launch speed.`;
  $('dialogNext').textContent=phase==='won'?'NEXT TARGET':'CHANGE TARGET';
  $('resultShade').classList.add('show');
 }
-function insertOrbit(){
- if(phase!=='flying'||target==='star')return;
- const solution=captureSolution(rocket,target);
- if(!solution||solution.required>fuel+1e-7)return;
- fuel=Math.max(0,fuel-solution.required);
- rocket.vx=solution.idealVx;rocket.vy=solution.idealVy;
- const p=solution.planet,dx=rocket.x-p.x,dy=rocket.y-p.y;
- orbitState={id:target,r:solution.dist,a0:Math.atan2(dy,dx),sign:solution.sign,start:simT,period:TAU*Math.sqrt(solution.dist**3/p.mu)};
- orbitWall=0;trail.length=0;paused=false;phase='orbiting';
- updateControls();
+function applyBurn(){
+ if(phase!=='flying'||!localEncounter||target==='star'||fuel<.5)return;
+ const burn=proposedBurn();if(!burn)return;
+ const dv=Math.min(fuel,burnPower);fuel=Math.max(0,fuel-dv);rocket=burn;
+ burnCount++;stableSweep=0;lastPolar=null;
+ // Remain paused for deliberate planning; to fly, tap COAST.
+ paused=true;accum=0;updateControls();
+}
+function tickPhysics(dt){
+ if(phase!=='flying'||paused||!rocket)return;
+ const wasLocal=localEncounter;
+ rocket=wasLocal?localAdvance(rocket,dt,target):advance(rocket,dt);
+ simT=rocket.t;
+ if(trail.length===0||Math.hypot(rocket.x-trail[trail.length-1].x,rocket.y-trail[trail.length-1].y)>.8){
+  trail.push({x:rocket.x,y:rocket.y});if(trail.length>280)trail.shift();
+ }
+ const outcome=checkCollision(rocket);if(outcome){endFlight(outcome);return;}
+ if(!wasLocal&&target!=='star'){
+  const q=encounterFrame(rocket,target);
+  if(q&&q.dist<CAPTURE_RADIUS[target]&&q.dist>q.p.r+3){
+   localEncounter=true;encounterNotified=true;paused=true;accum=0;
+   stableSweep=0;lastPolar=Math.atan2(q.dy,q.dx);
+   updateControls();return;
+  }
+ }
+ if(localEncounter&&burnCount>0){
+  const orbit=orbitalElements(rocket,target),polar=Math.atan2(orbit.dy,orbit.dx);
+  if(lastPolar!==null){
+   const delta=Math.atan2(Math.sin(polar-lastPolar),Math.cos(polar-lastPolar));
+   if(orbit.stable)stableSweep+=Math.abs(delta);
+   else stableSweep=0;
+  }
+  lastPolar=polar;
+  if(stableSweep>=TAU-.04){endFlight({kind:'win',hit:target,label:'Completed one safe, self-propelled orbit.'});return;}
+ }
 }
 function nextTarget(){const order=['aurora','cinder','star'];chooseTarget(order[(order.indexOf(target)+1)%order.length]);}
 function resize(){
@@ -312,7 +412,7 @@ function render(){
   const p=getBody(target,t),loc=worldToScreen(p.x,p.y);
   lineCircle(loc.x,loc.y,CAPTURE_RADIUS[target]*view.scale,'rgba(116,238,177,.65)',1.6,[5,4]);
  }
- if(phase==='orbiting'&&orbitState){const p=getBody(orbitState.id,t),loc=worldToScreen(p.x,p.y);lineCircle(loc.x,loc.y,orbitState.r*view.scale,'rgba(139,248,200,.75)',2.2,[3,2]);}
+ if(localEncounter&&rocket){const o=orbitalElements(rocket,target);if(o&&o.energy<0&&Number.isFinite(o.apo)&&o.apo<ORBIT_LIMIT[target]*2){const p=getBody(target,t),loc=worldToScreen(p.x,p.y);lineCircle(loc.x,loc.y,o.apo*view.scale,'rgba(139,248,200,.23)',1,[2,6]);}}
  if(phase==='aiming'&&showPath&&path.length){
   ctx.beginPath();for(let i=0;i<path.length;i++){const s=worldToScreen(path[i].x,path[i].y);i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y)}
   ctx.strokeStyle='rgba(99,226,249,.62)';ctx.lineWidth=2.2;ctx.setLineDash([5,5]);ctx.stroke();ctx.setLineDash([]);
@@ -335,40 +435,25 @@ function render(){
   if(trail.length>1){ctx.beginPath();trail.forEach((pos,i)=>{const s=worldToScreen(pos.x,pos.y);i===0?ctx.moveTo(s.x,s.y):ctx.lineTo(s.x,s.y)});ctx.strokeStyle='#75eaffba';ctx.lineWidth=2;ctx.stroke()}
   const s=worldToScreen(rocket.x,rocket.y);ctx.save();ctx.translate(s.x,s.y);ctx.rotate(Math.atan2(rocket.vy,rocket.vx)+PI/2);
   ctx.shadowColor='#7bdffe';ctx.shadowBlur=12;ctx.fillStyle='#e9fcff';ctx.beginPath();ctx.moveTo(0,-7);ctx.lineTo(4,5);ctx.lineTo(0,3);ctx.lineTo(-4,5);ctx.closePath();ctx.fill();ctx.restore();
+  if(localEncounter&&paused&&target!=='star'&&fuel>.49){
+   const dir=burnVector(rocket,target,burnMode),sx=s.x+dir.x*34,sy=s.y+dir.y*34;
+   ctx.strokeStyle='#ffd28f';ctx.fillStyle='#ffd28f';ctx.lineWidth=2.2;
+   ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(sx,sy);ctx.stroke();
+   const a=Math.atan2(dir.y,dir.x);
+   ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx-8*Math.cos(a-.45),sy-8*Math.sin(a-.45));ctx.lineTo(sx-8*Math.cos(a+.45),sy-8*Math.sin(a+.45));ctx.closePath();ctx.fill();
+  }
  }
 }
 function frame(ms){
- if(lastFrame===0)lastFrame=ms;let wallDt=Math.min((ms-lastFrame)/1000,.05);lastFrame=ms;
- if(phase==='orbiting'&&!paused&&rocket&&orbitState){
-  orbitWall+=wallDt;
-  const fraction=Math.min(1,orbitWall/5.0);
-  simT=orbitState.start+orbitState.period*fraction;
-  const p=getBody(orbitState.id,simT),a=orbitState.a0+orbitState.sign*TAU*fraction;
-  rocket={x:p.x+orbitState.r*Math.cos(a),y:p.y+orbitState.r*Math.sin(a),
-   vx:p.vx-orbitState.sign*Math.sin(a)*Math.sqrt(p.mu/orbitState.r),vy:p.vy+orbitState.sign*Math.cos(a)*Math.sqrt(p.mu/orbitState.r),t:simT};
-  if(trail.length===0||Math.hypot(rocket.x-trail[trail.length-1].x,rocket.y-trail[trail.length-1].y)>1){trail.push({x:rocket.x,y:rocket.y});if(trail.length>260)trail.shift()}
-  $('clock').textContent=`T + ${simT.toFixed(1)}s`;
-  if(fraction>=1)endFlight({kind:'win',hit:target,label:'One complete circular orbit verified.'});
- }
+ if(lastFrame===0)lastFrame=ms;const wallDt=Math.min((ms-lastFrame)/1000,.05);lastFrame=ms;
  if(phase==='flying'&&!paused&&rocket){
-  const p=target==='star'?null:getBody(target,simT),near=p&&Math.hypot(rocket.x-p.x,rocket.y-p.y)<CAPTURE_RADIUS[target]+14;
-  accum+=wallDt*(near?1.0:3.1);
-  const DT=.055;let steps=0;
-  while(accum>=DT&&steps<14&&phase==='flying'){
-   rocket=advance(rocket,DT);simT=rocket.t;accum-=DT;steps++;
-   if(steps%2===0){trail.push({x:rocket.x,y:rocket.y});if(trail.length>260)trail.shift()}
-   const outcome=checkCollision(rocket);
-   if(outcome){endFlight(outcome);break;}
-   const solution=captureSolution(rocket,target);
-   if(solution&&!encounterNotified){encounterNotified=true;paused=true;accum=0;updateControls();break;}
-   // A future flyby can generate a fresh encounter after departing the capture zone.
-   if(target!=='star'&&!solution&&encounterNotified){
-    const p=getBody(target,simT);
-    if(Math.hypot(rocket.x-p.x,rocket.y-p.y)>CAPTURE_RADIUS[target]+10)encounterNotified=false;
-   }
-  }
-  $('clock').textContent=`T + ${simT.toFixed(1)}s`;
-  updateControls();
+  const near=localEncounter||target!=='star'&&encounterFrame(rocket,target)?.dist<CAPTURE_RADIUS[target]+14;
+  const orbital=localEncounter?orbitalElements(rocket,target):null;
+  // Flight is slower during risky approaches and faster after an established safe orbit.
+  accum+=wallDt*(localEncounter&&orbital?.stable?3.5:near?1.8:3.1);
+  const dt=.055;let steps=0;
+  while(accum>=dt&&steps<16&&phase==='flying'&&!paused){tickPhysics(dt);accum-=dt;steps++;}
+  if(phase==='flying')updateControls();
  }
  render();requestAnimationFrame(frame);
 }
@@ -398,9 +483,12 @@ $('speedRange').addEventListener('input',e=>changeAim(angle,+e.target.value));
 $('angleMinus').addEventListener('click',()=>changeAim(angle-1,speed));$('anglePlus').addEventListener('click',()=>changeAim(angle+1,speed));
 $('speedMinus').addEventListener('click',()=>changeAim(angle,speed-.5));$('speedPlus').addEventListener('click',()=>changeAim(angle,speed+.5));
 $('launchButton').addEventListener('click',launch);$('retryButton').addEventListener('click',resetFlight);
-$('orbitButton').addEventListener('click',insertOrbit);$('coastButton').addEventListener('click',()=>{if(phase==='flying'||phase==='orbiting'){paused=!paused;updateControls()}});
+$('orbitButton').addEventListener('click',applyBurn);
+$('burnRange').addEventListener('input',e=>{burnPower=+e.target.value;updateControls()});
+for(const b of document.querySelectorAll('.burn-mode'))b.addEventListener('click',()=>{burnMode=b.dataset.mode;updateControls()});
+$('coastButton').addEventListener('click',()=>{if(phase==='flying'){paused=!paused;updateControls()}});
 $('togglePath').addEventListener('click',()=>{showPath=!showPath;$('togglePath').classList.toggle('selected',showPath);$('togglePath').setAttribute('aria-pressed',String(showPath))});
-$('pauseButton').addEventListener('click',()=>{if(phase==='flying'||phase==='orbiting'){paused=!paused;updateControls()}});
+$('pauseButton').addEventListener('click',()=>{if(phase==='flying'){paused=!paused;updateControls()}});
 for(const id of ['aurora','cinder','star'])$('mission'+id[0].toUpperCase()+id.slice(1)).addEventListener('click',()=>chooseTarget(id));
 $('dialogRetry').addEventListener('click',resetFlight);$('dialogNext').addEventListener('click',nextTarget);
 window.addEventListener('resize',resize);
@@ -409,8 +497,10 @@ resize();predict();updateControls();requestAnimationFrame(frame);
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));
 // Expose a tiny diagnostic API for automated regression tests, not gameplay.
 window.__flightLab={getState:()=>({phase,target,angle,speed,simT,shots,wins:[...wins],prediction,
- fuel,paused,rocket,orbitState,previewCapture,capture:captureSolution(rocket,target)}),
- setAim:(a,v)=>{if(phase==='aiming')changeAim(a,v)},chooseTarget,resetFlight,insertOrbit};
+ fuel,paused,rocket,localEncounter,burnPower,burnMode,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture}),
+ setAim:(a,v)=>{if(phase==='aiming')changeAim(a,v)},chooseTarget,resetFlight,
+ setBurn:(mode,power)=>{burnMode=mode;burnPower=CLAMP(power,.5,20);updateControls()},
+ applyBurn,advanceTest:(n=1)=>{for(let i=0;i<n&&phase==='flying'&&!paused;i++)tickPhysics(.055);updateControls();}};
 })();
 </script>
 </body>
