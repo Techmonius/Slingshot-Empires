@@ -1,24 +1,37 @@
-# Slingshot Empires — Flight Lab 0.3
+# Slingshot Empires — Flight Lab v0.4
 
-**Play:** https://techmonius.github.io/Slingshot-Empires/
+Live game: https://techmonius.github.io/Slingshot-Empires/
 
-## Change from v0.2
+## New in v0.4 — orbit planning
 
-Orbital capture is now **manual and physical** rather than a guaranteed circularization or animated fake orbit. There is no longer an automatic velocity match. After encountering a target planet, the game pauses so you can plan a manual burn. Set thrust direction (BRAKE, BOOST, RADIAL −, RADIAL +) and amount (Δv), then tap **APPLY BURN** and **COAST**. Each burn consumes fuel from a 30 Δv budget; multiple burns are allowed. The status line shows current planet-relative radial and tangential velocity, plus the local circular speed at that altitude. The prospective post-burn orbit shows periapsis/apoapsis, and flags a safe orbit. To win, **maintain a safe non-impacting bound orbit for a full revolution** while fuel/physics remain in play. Bad choices crash or escape.
+After entering a planet’s capture ring the game pauses in a close-up **planet-frame camera**. During this pause the flight planner displays:
 
-### Physics scope
+- **Gray dashed line:** the trajectory if you COAST without applying another burn.
+- **Cyan solid line:** the projected trajectory after the selected burn. It updates with direction and Burn Δv.
+- **Pe / Ap:** periapsis and apoapsis (closest and farthest orbital radius, measured from the planet center); shown on the proposed orbit when it is a bound elliptical orbit with meaningful eccentricity.
+- **Status:** predicted impact, escape, high apoapsis / operationally unsuitable orbit, or safe capture. You can preview a burn before spending fuel.
+- **S–F orbital quality grade:** a preliminary gameplay rating for *future* resource extraction; currently only shown for safe orbits, with collision-risk trajectories receiving F. A safe low-eccentricity orbit near a preferred operational altitude scores best. An S is 90+, A is 75+, B 60+, C 45+, D 30+, F below 30. The grade is NOT a real physics-based mining-efficiency calculation; resource production is not implemented yet.
 
-Before the first encounter, the rocket follows star plus all moving planets' gravitational accelerations (the v0.2 Newtonian integration). Planet positions remain on predefined stellar orbits. **After entering the encounter zone**, integration continues with a patched-conic *planet-relative two-body approximation*: planet position/velocity continue to move, and the rocket orbits under that planet's gravity. The star's tides and other bodies' effects are intentionally omitted while in this local mode, and the transition is not a realistic planetary sphere of influence. No orbit is scripted, and no maneuver guarantees circularization. More realistic sphere-of-influence boundaries can come later.
+The grade is recorded after a successful complete orbit, and the best grade achieved per planet is saved locally with the existing shot count and missions. Grade depends on orbital geometry, **not fuel remaining**. Fuel use can become a separate logistical constraint in later versions.
 
-### Install on iPhone
+### Pilot instructions
 
-Open link in Safari, Share → Add to Home Screen. Your existing Home Screen game updates automatically after cache refresh (close/open while online). Old version 0.2 shots and wins are carried forward. If an old version persists, launch in Safari and reload.
+1. Choose Aurora or Cinder. Launch using the angle and Δv controls and projected transfer trajectory.
+2. On entering the encounter region, the camera zooms to the planet and flight pauses. Choose BRAKE, BOOST, RADIAL − or RADIAL +. Adjust the Burn Δv slider and see how the cyan orbit reacts relative to the gray coast path.
+3. Check the predicted result and quality grade. Tap **APPLY BURN**, then **COAST ▶**. You can pause later to perform more burns.
+4. Stay in a safe gravitational orbit for one full revolution to complete the mission and earn a final orbit grade.
 
-### Game controls
+Verified two-burn sample maneuvers (perform both before coasting):
 
-Launch target, angle and speed: same as before. When green capture circle is reached: game pauses. Set direction:
-- BRAKE: slow tangential speed relative to planet;
-- BOOST: increase tangential speed;
-- RADIAL −: thrust inward;
-- RADIAL +: thrust outward.
-Select Burn Δv and tap APPLY BURN. It deducts fuel immediately and leaves you paused to reconsider; tap COAST ▶ to continue. Pause at any time for another burn. Retrograde/prograde are defined relative to the current sign of angular momentum around the target. There is no automatic insertion.
+| Target | Launch angle | Launch Δv | Burn 1 | Burn 2 | Example grade |
+|---|---:|---:|---|---|---|
+| Cinder | −20° | 16 | BRAKE 5.0 | RADIAL + 4.0 | S (90) |
+| Aurora | −30° | 16 | BRAKE 2.5 | RADIAL + 4.5 | A (86) |
+
+The star impact mission still works. The transfer path projection still simulates star and moving-planet gravity. Within the planet’s encounter zone both the live flight and the projected paths use continuous planet-relative velocity-Verlet two-body integration; in this prototype, stellar tides are omitted inside the encounter zone, and the transition is a gameplay approximation rather than a rigorously calculated sphere-of-influence crossing. Instantaneous maneuver Δv replaces realistic finite-duration thrust.
+
+### iPhone installation / refresh
+
+Open the live game in Safari and use **Share → Add to Home Screen**. Existing Home Screen installs update from GitHub Pages. If an older version remains after deployment, reopen while online or refresh the page in Safari. No Apple Developer account required.
+
+HTML Canvas, JavaScript, PWA manifest and versioned service worker; no external libraries.
