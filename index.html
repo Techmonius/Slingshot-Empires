@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Slingshot">
   <meta name="description" content="A tiny orbital strategy game. Aim, launch, and intercept moving worlds.">
-  <meta property="og:title" content="Slingshot Empires — Prototype 0.4">
+  <meta property="og:title" content="Slingshot Empires — Prototype 0.6">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -65,9 +65,14 @@
     .burn-planner{margin-bottom:8px;padding:10px;border-radius:11px;background:#0b1b30;border:1px solid #30516b}
     .burn-title{font-size:10px;letter-spacing:.08em;font-weight:800;color:#bce7ff;display:flex;justify-content:space-between;gap:6px;margin-bottom:6px}
     .burn-title span{color:#ffcf86;font-variant-numeric:tabular-nums}
-    .burn-modes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin-bottom:7px}
-    .burn-mode{min-height:32px;min-width:0;border-radius:7px;border:1px solid #36516d;background:#152b46;color:#bcd2ed;font-size:10px;font-weight:750;padding:2px 1px}
-    .burn-mode.selected{color:#071a26;background:#8ae2ff;border-color:#a7f2ff}
+    .burn-aim-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;margin-bottom:7px}
+    .burn-aim-grid .slider-head{margin-bottom:2px}
+    .burn-aim-grid .slider-head output{font-size:14px}
+    .tiny-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;margin-top:1px}
+    .tiny-steps button{min-width:0;min-height:29px;padding:2px 0;font-size:10px;font-weight:800;color:#c4dff5;background:#142d48;border:1px solid #2f4d68;border-radius:5px;touch-action:manipulation}
+    .tiny-steps button:active{background:#285e7e}
+    .burn-zero{color:#8ae2ff!important}
+    .angle-frame{font-size:9px;color:#819db7;line-height:1.25;margin-top:4px}
     .burn-readout{font-size:11px;color:#abcee4;line-height:1.4;margin:6px 0 0;font-variant-numeric:tabular-nums}
     .burn-readout.safe{color:#91f2bd}.burn-readout.danger{color:#ff9daf}.burn-readout.caution{color:#ffd38c}
     .grade-line{display:flex;align-items:center;gap:8px;padding-top:7px;margin-top:7px;border-top:1px solid #324961;min-height:28px}
@@ -79,15 +84,10 @@
     .orbit-view-tag{position:absolute;right:13px;top:87px;padding:4px 7px;border:1px solid rgba(114,177,212,.3);background:#071626db;border-radius:6px;color:#a9d8f1;font-size:9px;font-weight:750;letter-spacing:.04em;pointer-events:none}
 
     #orbitTelemetry{font-size:10px;color:#bcdbef;margin:0 0 8px;line-height:1.4;min-height:14px;font-variant-numeric:tabular-nums}
-    .burn-control{display:flex;align-items:center;gap:8px;font-size:11px;color:#adcce8}
-    .burn-control output{min-width:43px;text-align:right;color:#fff;font-weight:850;font-variant-numeric:tabular-nums}
-    .burn-control input{flex:1;min-width:0}
-    .burn-nudges{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin-top:7px}
-    .burn-nudge{min-height:34px;min-width:0;padding:4px 1px;border-radius:7px;background:#142d48;border:1px solid #365676;color:#d2eaff;font-size:11px;font-weight:800;font-variant-numeric:tabular-nums}
-    .burn-nudge:active{background:#285e7e}
-    .burn-nudge.zero{color:#8ae2ff;border-color:#4c8ca8}
+    .launch-angle-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;margin-top:1px}
+    .launch-angle-steps .step{min-width:0;padding:5px 0;font-size:10px}
     .flight-panel .action-row{grid-template-columns:1fr auto}
-    @media(max-height:700px){.burn-planner{padding:7px;margin-bottom:5px}.burn-modes{margin-bottom:4px}.burn-mode{min-height:27px}.burn-readout{font-size:10px}.fuel-track{margin-bottom:6px}.grade-line{padding-top:4px;margin-top:4px}.orbit-view-tag{top:80px}}
+    @media(max-height:700px){.burn-planner{padding:7px;margin-bottom:5px}.burn-aim-grid{gap:7px}.tiny-steps button{min-height:27px}.burn-readout{font-size:10px}.fuel-track{margin-bottom:6px}.grade-line{padding-top:4px;margin-top:4px}.orbit-view-tag{top:80px}}
 
     [hidden]{display:none!important}
     .fuel-line{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;color:#9fb6da;margin-bottom:6px;min-height:19px}
@@ -117,7 +117,7 @@
 <body>
 <div class="app">
   <header class="top">
-    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.5</span></div></div>
+    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.6</span></div></div>
     <div class="stats"><div class="stat">Shots <strong id="shotCount">0</strong></div><div class="stat">Wins <strong id="winCount">0</strong>/3</div></div>
   </header>
   <main class="arena" id="arena" aria-label="Interactive solar system. Drag outward from the blue home planet to aim a rocket.">
@@ -133,7 +133,7 @@
   <section class="controls" aria-label="Launch controls">
     <div class="mode-row"><div><div class="mode-title" id="controlTitle">Launch parameters</div><div class="mode-sub" id="controlSub">Relative to moving HOME planet</div></div><span id="statusPill" class="status-pill">READY</span></div>
     <div id="planningPanel"><div class="controls-grid">
-      <div class="slider-col"><div class="slider-head"><label for="angleRange">Angle</label><output id="angleValue" for="angleRange">28°</output></div><input id="angleRange" type="range" min="-180" max="180" step="1" value="28"><div class="step-row"><button class="step" id="angleMinus" aria-label="Decrease launch angle by one degree">−1°</button><button class="step" id="anglePlus" aria-label="Increase launch angle by one degree">+1°</button></div></div>
+      <div class="slider-col"><div class="slider-head"><label for="angleRange">Angle</label><output id="angleValue" for="angleRange">28.0°</output></div><input id="angleRange" type="range" min="-180" max="180" step="0.1" value="28"><div class="launch-angle-steps"><button class="step" id="angleMinus" aria-label="Decrease launch angle by one degree">−1°</button><button class="step" id="angleMinusFine" aria-label="Decrease launch angle by 0.1 degree">−0.1°</button><button class="step" id="anglePlusFine" aria-label="Increase launch angle by 0.1 degree">+0.1°</button><button class="step" id="anglePlus" aria-label="Increase launch angle by one degree">+1°</button></div></div>
       <div class="slider-col"><div class="slider-head"><label for="speedRange">Launch Δv</label><output id="speedValue" for="speedRange">32.0</output></div><input id="speedRange" type="range" min="0" max="65" step="0.1" value="32"><div class="step-row"><button class="step" id="speedMinus" aria-label="Decrease launch delta v by 0.1">−0.1</button><button class="step" id="speedPlus" aria-label="Increase launch delta v by 0.1">+0.1</button></div></div>
     </div>
     <div class="action-row"><button id="launchButton" class="primary">▶ LAUNCH ROCKET</button><button id="retryButton" class="secondary">RESET</button></div></div>
@@ -142,20 +142,29 @@
       <div class="fuel-track"><div id="fuelBar" class="fuel-fill"></div></div>
       <div id="burnPlanner" class="burn-planner" hidden>
         <div class="burn-title">MANUAL THRUSTER <span id="burnCost">Fuel cost 0.00</span></div>
-        <div class="burn-modes">
-          <button class="burn-mode selected" data-mode="brake" aria-pressed="true">BRAKE</button>
-          <button class="burn-mode" data-mode="boost" aria-pressed="false">BOOST</button>
-          <button class="burn-mode" data-mode="in" aria-pressed="false">RADIAL −</button>
-          <button class="burn-mode" data-mode="out" aria-pressed="false">RADIAL +</button>
+        <div class="burn-aim-grid">
+          <div class="slider-col">
+            <div class="slider-head"><label for="burnAngleRange">Burn angle</label><output id="burnAngleValue" for="burnAngleRange">0.0°</output></div>
+            <input id="burnAngleRange" type="range" min="-180" max="180" step="0.1" value="0">
+            <div class="tiny-steps" aria-label="Burn direction fine controls">
+              <button id="burnAngleMinus" aria-label="Decrease burn angle by one degree">−1°</button>
+              <button id="burnAngleMinusFine" aria-label="Decrease burn angle by 0.1 degree">−.1°</button>
+              <button id="burnAnglePlusFine" aria-label="Increase burn angle by 0.1 degree">+.1°</button>
+              <button id="burnAnglePlus" aria-label="Increase burn angle by one degree">+1°</button>
+            </div>
+          </div>
+          <div class="slider-col">
+            <div class="slider-head"><label for="burnRange">Burn Δv</label><output id="burnValue" for="burnRange">0.00</output></div>
+            <input id="burnRange" type="range" min="0" max="20" step="0.01" value="0">
+            <div class="tiny-steps" aria-label="Burn magnitude fine controls">
+              <button id="burnMinusLarge" aria-label="Decrease burn by 0.1">−.10</button>
+              <button id="burnMinusFine" aria-label="Decrease burn by 0.01">−.01</button>
+              <button id="burnPlusFine" aria-label="Increase burn by 0.01">+.01</button>
+              <button id="burnPlusLarge" aria-label="Increase burn by 0.1">+.10</button>
+            </div>
+          </div>
         </div>
-        <label class="burn-control" for="burnRange">Burn Δv <input id="burnRange" type="range" min="0" max="20" step="0.01" value="0"><output id="burnValue">0.00</output></label>
-        <div class="burn-nudges" aria-label="Fine burn adjustments">
-          <button class="burn-nudge zero" id="burnZero" aria-label="Set burn to zero">0</button>
-          <button class="burn-nudge" id="burnMinusLarge" aria-label="Decrease burn by 0.1">−0.10</button>
-          <button class="burn-nudge" id="burnMinusFine" aria-label="Decrease burn by 0.01">−0.01</button>
-          <button class="burn-nudge" id="burnPlusFine" aria-label="Increase burn by 0.01">+0.01</button>
-          <button class="burn-nudge" id="burnPlusLarge" aria-label="Increase burn by 0.1">+0.10</button>
-        </div>
+        <div class="angle-frame">0° → right · 90° ↓ down · Drag from rocket to aim · <button id="burnZero" class="burn-zero" style="border:0;background:transparent;font-size:10px;padding:1px 4px;text-decoration:underline">Reset Δv to 0</button></div>
         <div class="burn-readout" id="burnPrediction">Adjust burn direction and magnitude to preview your orbit.</div>
         <div class="grade-line" id="gradeLine"><strong class="grade-mark" id="gradeMark">—</strong><span class="grade-copy" id="gradeText">Proposed orbit quality • future extraction potential</span></div>
       </div>
@@ -211,9 +220,9 @@ function burnVector(r,id,mode){
 }
 function proposedBurn(){
  if(!localEncounter||!rocket||target==='star')return null;
- const dir=burnVector(rocket,target,burnMode),dv=Math.min(burnPower,fuel);
- if(!dir||dv<=0)return null;
- return {...rocket,vx:rocket.vx+dir.x*dv,vy:rocket.vy+dir.y*dv};
+ const dv=Math.min(burnPower,fuel),a=burnAngle*RAD;
+ if(dv<=0)return null;
+ return {...rocket,vx:rocket.vx+Math.cos(a)*dv,vy:rocket.vy+Math.sin(a)*dv};
 }
 function localAdvance(r,dt,id){
  const q=encounterFrame(r,id),rmag=Math.max(2,q.dist),factor=-q.p.mu/(rmag*rmag*rmag);
@@ -281,7 +290,7 @@ function readSaved(){
  }catch{return {shots:0,wins:[],grades:{}}}
 }
 const saved=readSaved();
-let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,target='aurora',angle=28,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,rocket=null,simT=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=0,burnMode='brake',burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
+let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,target='aurora',angle=28,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,burnDragging=false,rocket=null,simT=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=0,burnAngle=0,burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
 function store(){try{localStorage.setItem(DATA_KEY,JSON.stringify({shots,wins:[...wins],grades}))}catch{}}
 function orbitPos(p,t){const omega=Math.sqrt(MU_STAR/(p.orbit**3));const q=p.phase+omega*t;return {x:p.orbit*Math.cos(q),y:p.orbit*Math.sin(q),vx:-p.orbit*omega*Math.sin(q),vy:p.orbit*omega*Math.cos(q)}}
 function bodiesAt(t){return PLANETS.map(p=>({...p,...orbitPos(p,t)}))}
@@ -329,7 +338,7 @@ function predict(){
  path=points;prediction=outcome;previewCapture=approach;
 }
 function updateControls(){
- $('angleValue').textContent=`${Math.round(angle)}°`;
+ $('angleValue').textContent=`${angle.toFixed(1)}°`;
  $('speedValue').textContent=speed.toFixed(1);
  $('angleRange').value=angle;$('speedRange').value=speed;
  $('shotCount').textContent=shots;$('winCount').textContent=wins.size;
@@ -340,7 +349,7 @@ function updateControls(){
  $('controlSub').textContent=phase==='aiming'?'Relative to moving HOME planet':phase==='flying'?(localEncounter?'Pilot the burn; safe orbit requires a full revolution':'Approach the target capture zone'):'Adjust launch parameters to retry';
  $('statusPill').textContent=phase==='aiming'?'READY':phase==='flying'?(paused?'PAUSED':'IN FLIGHT'):(phase==='won'?'SUCCESS':'LOST');
  $('statusPill').className='status-pill '+(phase==='flying'?'moving':phase==='won'?'won':phase==='lost'?'lost':'');
- const disable=phase==='flying';for(const id of ['angleRange','speedRange','angleMinus','anglePlus','speedMinus','speedPlus'])$(id).disabled=disable;
+ const disable=phase==='flying';for(const id of ['angleRange','speedRange','angleMinus','anglePlus','angleMinusFine','anglePlusFine','speedMinus','speedPlus'])$(id).disabled=disable;
  $('planningPanel').hidden=disable;
  $('flightPanel').hidden=!disable;
  $('burnPlanner').hidden=!(phase==='flying'&&localEncounter&&target!=='star');
@@ -369,6 +378,8 @@ function updateControls(){
    const maxBurn=Math.min(20,fuel);
    burnPower=Math.round(CLAMP(burnPower,0,maxBurn)*100)/100;
    $('burnCost').textContent=`Fuel cost ${burnPower.toFixed(2)} / ${fuel.toFixed(2)}`;
+    $('burnAngleValue').textContent=`${burnAngle.toFixed(1)}°`;
+    $('burnAngleRange').value=burnAngle;
    $('burnValue').textContent=burnPower.toFixed(2);
    $('burnRange').max=maxBurn.toFixed(2);
    $('burnRange').value=burnPower.toFixed(2);
@@ -384,14 +395,14 @@ function updateControls(){
  }
  $('launchButton').disabled=disable;$('launchButton').textContent=disable?'● IN FLIGHT':phase==='aiming'?'▶ LAUNCH ROCKET':'▶ FLY AGAIN';
  $('pauseButton').textContent=paused?'▶':'Ⅱ';$('pauseButton').title=paused?'Resume flight':'Pause flight';
- $('touchTip').textContent=phase==='aiming'?(target==='star'?'Aim to hit the star':'Aim past the planet, not directly into it'):phase==='flying'?(localEncounter?(paused?'GRAY = coast · CYAN = selected burn':'Pause to plan another burn'): 'Approach the green ring to begin manual capture'):'Adjust and retry, or choose another target';
+ $('touchTip').textContent=phase==='aiming'?(target==='star'?'Aim to hit the star':'Aim past the planet, not directly into it'):phase==='flying'?(localEncounter?(paused?'Drag from rocket to aim burn · GRAY coast / CYAN burn':'Pause to plan another burn'): 'Approach the green ring to begin manual capture'):'Adjust and retry, or choose another target';
  for(const id of ['aurora','cinder','star'])$('mission'+id[0].toUpperCase()+id.slice(1)).style.color=id===target?'#e5fbff':'#7fa3c2';
- for(const b of document.querySelectorAll('.burn-mode')){const selected=b.dataset.mode===burnMode;b.classList.toggle('selected',selected);b.setAttribute('aria-pressed',String(selected));}
 }
 function chooseTarget(id){if(!MISSION[id])return;target=id;resetFlight();}
 function resetFlight(){phase='aiming';rocket=null;simT=0;paused=false;accum=0;result=null;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;$('resultShade').classList.remove('show');predict();updateControls();}
-function changeAim(nextAngle,nextSpeed){angle=CLAMP(Math.round(nextAngle),-180,180);speed=CLAMP(Math.round(nextSpeed*10)/10,0,65);predict();updateControls();}
+function changeAim(nextAngle,nextSpeed){angle=CLAMP(Math.round(nextAngle*10)/10,-180,180);speed=CLAMP(Math.round(nextSpeed*10)/10,0,65);predict();updateControls();}
 function setBurnPower(nextPower){burnPower=Math.round(CLAMP(nextPower,0,Math.min(20,fuel))*100)/100;updateControls();}
+function setBurnAngle(nextAngle){burnAngle=CLAMP(Math.round(nextAngle*10)/10,-180,180);updateControls();}
 function launch(){
  if(phase==='flying')return;
  if(phase!=='aiming'){resetFlight();}
@@ -440,6 +451,9 @@ function tickPhysics(dt){
   if(q&&q.dist<CAPTURE_RADIUS[target]&&q.dist>q.p.r+3){
    localEncounter=true;encounterNotified=true;paused=true;accum=0;
    stableSweep=0;lastPolar=Math.atan2(q.dy,q.dx);
+   // Suggest a retrograde initial heading, but don't apply a burn automatically.
+   const retro=burnVector(rocket,target,'brake');
+   if(retro)burnAngle=Math.round(Math.atan2(retro.y,retro.x)/RAD*10)/10;
    updateControls();return;
   }
  }
@@ -568,13 +582,14 @@ function render(){
   if(trail.length>1){ctx.beginPath();trail.forEach((pos,i)=>{const s=worldToScreen(pos.x,pos.y);i===0?ctx.moveTo(s.x,s.y):ctx.lineTo(s.x,s.y)});ctx.strokeStyle='#75eaffba';ctx.lineWidth=2;ctx.stroke()}
   const s=worldToScreen(rocket.x,rocket.y);ctx.save();ctx.translate(s.x,s.y);ctx.rotate(Math.atan2(rocket.vy,rocket.vx)+PI/2);
   ctx.shadowColor='#7bdffe';ctx.shadowBlur=12;ctx.fillStyle='#e9fcff';ctx.beginPath();ctx.moveTo(0,-7);ctx.lineTo(4,5);ctx.lineTo(0,3);ctx.lineTo(-4,5);ctx.closePath();ctx.fill();ctx.restore();
-  if(localEncounter&&paused&&target!=='star'&&burnPower>0&&fuel>0){
-   const dir=burnVector(rocket,target,burnMode),sx=s.x+dir.x*34,sy=s.y+dir.y*34;
-   ctx.strokeStyle='#ffd28f';ctx.fillStyle='#ffd28f';ctx.lineWidth=2.2;
-   ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(sx,sy);ctx.stroke();
-   const a=Math.atan2(dir.y,dir.x);
-   ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx-8*Math.cos(a-.45),sy-8*Math.sin(a-.45));ctx.lineTo(sx-8*Math.cos(a+.45),sy-8*Math.sin(a+.45));ctx.closePath();ctx.fill();
-  }
+   if(localEncounter&&paused&&target!=='star'){
+    const a=burnAngle*RAD,arrow=burnPower>0?Math.min(80,25+burnPower*3):25;
+    const sx=s.x+Math.cos(a)*arrow,sy=s.y+Math.sin(a)*arrow;
+    ctx.strokeStyle=burnPower>0?'#ffd28f':'#a8b9ca';ctx.fillStyle=ctx.strokeStyle;ctx.lineWidth=2.2;
+    ctx.setLineDash(burnPower>0?[]:[3,4]);
+    ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(sx,sy);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx-8*Math.cos(a-.45),sy-8*Math.sin(a-.45));ctx.lineTo(sx-8*Math.cos(a+.45),sy-8*Math.sin(a+.45));ctx.closePath();ctx.fill();
+   }
  }
 }
 function frame(ms){
@@ -593,8 +608,15 @@ function frame(ms){
 function clickAt(clientX,clientY){const rect=canvas.getBoundingClientRect(),x=clientX-rect.left,y=clientY-rect.top;return {x,y}}
 function distance(x,y,q){return Math.hypot(x-q.x,y-q.y)}
 canvas.addEventListener('pointerdown',e=>{
- if(phase==='flying')return;
- const {x,y}=clickAt(e.clientX,e.clientY),home=orbitPos(PLANETS[0],0),homeS=worldToScreen(home.x,home.y);
+ const {x,y}=clickAt(e.clientX,e.clientY);
+ if(phase==='flying'){
+  if(localEncounter&&paused&&rocket&&target!=='star'){
+   const ship=worldToScreen(rocket.x,rocket.y);
+   if(distance(x,y,ship)<43){burnDragging=true;pointerId=e.pointerId;canvas.setPointerCapture(e.pointerId);e.preventDefault();}
+  }
+  return;
+ }
+ const home=orbitPos(PLANETS[0],0),homeS=worldToScreen(home.x,home.y);
  if(distance(x,y,homeS)<Math.max(26,PLANETS[0].r*view.scale+15)){
   if(phase!=='aiming')resetFlight();dragging=true;pointerId=e.pointerId;canvas.setPointerCapture(e.pointerId);e.preventDefault();return;
  }
@@ -604,23 +626,33 @@ canvas.addEventListener('pointerdown',e=>{
  }
 });
 canvas.addEventListener('pointermove',e=>{
- if(!dragging||pointerId!==e.pointerId||phase!=='aiming')return;
- const {x,y}=clickAt(e.clientX,e.clientY),home=orbitPos(PLANETS[0],0),hp=worldToScreen(home.x,home.y);
- const dx=x-hp.x,dy=y-hp.y,dist=Math.hypot(dx,dy);
- if(dist>10)changeAim(Math.atan2(dy,dx)/RAD,CLAMP(dist/Math.max(80,view.width*.3)*65,0,65));
+ if(pointerId!==e.pointerId||(!dragging&&!burnDragging))return;
+ const {x,y}=clickAt(e.clientX,e.clientY);
+ if(burnDragging&&phase==='flying'&&localEncounter&&paused&&rocket){
+  const ship=worldToScreen(rocket.x,rocket.y),dx=x-ship.x,dy=y-ship.y,dist=Math.hypot(dx,dy);
+  if(dist>4)burnAngle=CLAMP(Math.round(Math.atan2(dy,dx)/RAD*10)/10,-180,180);
+  burnPower=Math.round(CLAMP(dist/Math.max(65,Math.min(view.width,view.height)*.30)*20,0,Math.min(20,fuel))*100)/100;
+  updateControls();
+ }else if(dragging&&phase==='aiming'){
+  const home=orbitPos(PLANETS[0],0),hp=worldToScreen(home.x,home.y);
+  const dx=x-hp.x,dy=y-hp.y,dist=Math.hypot(dx,dy);
+  if(dist>10)changeAim(Math.atan2(dy,dx)/RAD,CLAMP(dist/Math.max(80,view.width*.3)*65,0,65));
+ }
  e.preventDefault();
 });
-for(const evt of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(evt,e=>{if(e.pointerId===pointerId){dragging=false;pointerId=null}});
+for(const evt of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(evt,e=>{if(e.pointerId===pointerId){dragging=false;burnDragging=false;pointerId=null}});
 $('angleRange').addEventListener('input',e=>changeAim(+e.target.value,speed));
 $('speedRange').addEventListener('input',e=>changeAim(angle,+e.target.value));
 $('angleMinus').addEventListener('click',()=>changeAim(angle-1,speed));$('anglePlus').addEventListener('click',()=>changeAim(angle+1,speed));
+$('angleMinusFine').addEventListener('click',()=>changeAim(angle-.1,speed));$('anglePlusFine').addEventListener('click',()=>changeAim(angle+.1,speed));
 $('speedMinus').addEventListener('click',()=>changeAim(angle,speed-.1));$('speedPlus').addEventListener('click',()=>changeAim(angle,speed+.1));
 $('launchButton').addEventListener('click',launch);$('retryButton').addEventListener('click',resetFlight);
 $('orbitButton').addEventListener('click',applyBurn);
 $('burnRange').addEventListener('input',e=>setBurnPower(+e.target.value));
+$('burnAngleRange').addEventListener('input',e=>setBurnAngle(+e.target.value));
+for(const [id,dv] of [['burnAngleMinus',-1],['burnAngleMinusFine',-.1],['burnAnglePlusFine',.1],['burnAnglePlus',1]])$(id).addEventListener('click',()=>setBurnAngle(burnAngle+dv));
 for(const [id,dv] of [['burnMinusLarge',-.1],['burnMinusFine',-.01],['burnPlusFine',.01],['burnPlusLarge',.1]])$(id).addEventListener('click',()=>setBurnPower(burnPower+dv));
 $('burnZero').addEventListener('click',()=>setBurnPower(0));
-for(const b of document.querySelectorAll('.burn-mode'))b.addEventListener('click',()=>{burnMode=b.dataset.mode;updateControls()});
 $('coastButton').addEventListener('click',()=>{if(phase==='flying'){paused=!paused;updateControls()}});
 $('togglePath').addEventListener('click',()=>{showPath=!showPath;$('togglePath').classList.toggle('selected',showPath);$('togglePath').setAttribute('aria-pressed',String(showPath));updateControls()});
 $('pauseButton').addEventListener('click',()=>{if(phase==='flying'){paused=!paused;updateControls()}});
@@ -632,10 +664,10 @@ resize();predict();updateControls();requestAnimationFrame(frame);
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));
 // Expose a tiny diagnostic API for automated regression tests, not gameplay.
 window.__flightLab={getState:()=>({phase,target,angle,speed,simT,shots,wins:[...wins],prediction,
- fuel,paused,rocket,localEncounter,burnPower,burnMode,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
+ fuel,paused,rocket,localEncounter,burnPower,burnAngle,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
  predicted:burnPreview?{coast:burnPreview.coast?.rating,after:burnPreview.after?.rating,points:burnPreview.after?.points.length,ending:burnPreview.after?.ending}:null,grades}),
  setAim:(a,v)=>{if(phase==='aiming')changeAim(a,v)},chooseTarget,resetFlight,
- setBurn:(mode,power)=>{burnMode=mode;setBurnPower(power)},
+ setBurn:(a,power)=>{setBurnAngle(a);setBurnPower(power)},
  applyBurn,advanceTest:(n=1)=>{for(let i=0;i<n&&phase==='flying'&&!paused;i++)tickPhysics(.055);updateControls();}};
 })();
 </script>
