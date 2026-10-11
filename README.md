@@ -1,15 +1,10 @@
-# Slingshot Empires — Flight Lab v0.8
+# Slingshot Empires — Flight Lab v0.8.1
 
 Live game: https://techmonius.github.io/Slingshot-Empires/
 
-## New in v0.8 — zoom and pan
+## v0.8.1 — pinch-only map navigation
 
-- **Pinch with two fingers** on the map to zoom smoothly between **0.5× and 6×**. Pinch center remains visually anchored to the same world point; dragging two fingers together also pans.
-- **Plus (+)** and **minus (−)** buttons on the right edge of the map provide touch-accessible zoom for one-handed play. **FIT** resets the current view's scale and pan.
-- **Drag empty space** with one finger to pan. Dragging from HOME still sets launch direction and delta-v, and dragging from the rocket during paused encounter still sets burn direction and delta-v. Starting a second touch cancels an in-progress aim drag and begins the pinch gesture instead.
-- The solar-system map and the close-up orbit camera store zoom separately. Entering a new planetary encounter fits the orbit view automatically; resetting returns to the solar map with its previous zoom intact.
-- Zoom, pan, and FIT are view-only: they never change physical coordinates, simulated time, fuel, orbit grades or launch trajectories. Desktop mouse wheel is also supported.
-- Mobile screen overlays are compact so map controls stay accessible during flight.
+Pinch two fingers on the map to zoom **0.5×–6×**, and drag empty map space with one finger to pan. On-screen zoom buttons and the zoom readout have been removed to keep the play area clear. Launch and orbital-burn drag aiming still work. The solar map and encounter camera retain independent zoom settings. Entering a new encounter fits the planet camera automatically.
 
 ## Automatic installed-app updates (0.7.1 maintenance)
 
