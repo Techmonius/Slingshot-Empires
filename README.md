@@ -1,6 +1,16 @@
-# Slingshot Empires — Flight Lab v0.5
+# Slingshot Empires — Flight Lab v0.6
 
 Live game: https://techmonius.github.io/Slingshot-Empires/
+
+## New in v0.6 — independent aim angle + burn delta-v
+
+**Both launch and orbit insertion now have the same independent controls**: an angle slider spanning -180° to +180°, plus a separate delta-v magnitude slider. Both angle sliders support **0.1° increments**, with ±1° and ±0.1° buttons for precise touch adjustments. The burn magnitude slider remains **0.00–20.00 delta-v in 0.01 increments** (subject to remaining fuel); launch delta-v is **0–65 in 0.1 increments**.
+
+**Aiming on iPhone:** Before launch, drag outward from HOME to aim. During paused planetary encounter, drag outward from the rocket itself to choose burn direction and magnitude, then fine-tune with sliders/buttons. Angle uses screen axes: **0° = right**, **90° = down**, **-90° = up**, **±180° = left**. This is an absolute world/screen direction, not a predefined BRAKE/BOOST/RADIAL mode.
+
+On reaching the capture zone, the initial angle is suggested from a retrograde direction for convenience, but **no maneuver is applied automatically**. Change it freely; all 360° directions are available. Both coast and after-burn trajectories update for angle and delta-v changes. Zero burn remains true coasting, with no fuel consumption. The game still requires a safe orbit with one revolution to win.
+
+Original missions, saved grades and other mechanics remain intact. Tested free-angle two-burn Cinder capture achieves S/90 with 21 delta-v fuel remaining. This version doesn't claim to model full multi-body dynamics inside planetary capture zones.
 
 ## New in v0.5 — fine maneuver control
 
