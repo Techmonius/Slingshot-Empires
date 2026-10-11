@@ -1,21 +1,24 @@
-# Slingshot Empires — Flight Lab 0.2
+# Slingshot Empires — Flight Lab 0.3
 
-A mobile-first 2D gravitational flight and orbital insertion game for the iPhone. No App Store install needed.
+**Play:** https://techmonius.github.io/Slingshot-Empires/
 
-**Live game:** https://techmonius.github.io/Slingshot-Empires/
+## Change from v0.2
 
-### Playing
-1. Choose **Aurora**, **Cinder**, or **Star**.
-2. Aim using touch drag or fine-tune angle and launch delta-v with the sliders. The dotted path predicts a **coasting trajectory** (before burns).
-3. For planet missions, fly near your target and **avoid hitting its surface**. The green ring shows the capture zone. The game automatically pauses on first entry.
-4. **BURN TO ORBIT** matches a planet-relative circular orbital velocity at your current altitude, consuming the displayed delta-v from your **30 delta-v** insertion fuel budget. If the required burn exceeds your fuel, choose **COAST** and try a different part of the encounter, or retry with a different launch.
-5. After the burn, watch one complete revolution to finish the mission. The **Star** mission remains a direct impact challenge.
+Orbital capture is now **manual and physical** rather than a guaranteed circularization or animated fake orbit. There is no longer an automatic velocity match. After encountering a target planet, the game pauses so you can plan a manual burn. Set thrust direction (BRAKE, BOOST, RADIAL −, RADIAL +) and amount (Δv), then tap **APPLY BURN** and **COAST**. Each burn consumes fuel from a 30 Δv budget; multiple burns are allowed. The status line shows current planet-relative radial and tangential velocity, plus the local circular speed at that altitude. The prospective post-burn orbit shows periapsis/apoapsis, and flags a safe orbit. To win, **maintain a safe non-impacting bound orbit for a full revolution** while fuel/physics remain in play. Bad choices crash or escape.
 
-### Physics scope (important)
-During free flight, the rocket experiences gravity from the star **and every moving planet** using velocity-Verlet integration. The planets themselves follow preset circular orbits. The insertion maneuver is a calculated instantaneous velocity change; **after successful insertion, the orbit is demonstrated using the planet-relative two-body approximation**, rather than full long-term multi-body propagation. Orbital stability under stellar tides, fuel mass, realistic thrust duration, and actual sphere-of-influence transitions are future milestones. This keeps early gameplay accessible and clearly separates the physical model from gameplay approximations.
+### Physics scope
+
+Before the first encounter, the rocket follows star plus all moving planets' gravitational accelerations (the v0.2 Newtonian integration). Planet positions remain on predefined stellar orbits. **After entering the encounter zone**, integration continues with a patched-conic *planet-relative two-body approximation*: planet position/velocity continue to move, and the rocket orbits under that planet's gravity. The star's tides and other bodies' effects are intentionally omitted while in this local mode, and the transition is not a realistic planetary sphere of influence. No orbit is scripted, and no maneuver guarantees circularization. More realistic sphere-of-influence boundaries can come later.
 
 ### Install on iPhone
-Open the live game in Safari, use **Share → Add to Home Screen**, then launch it from the icon. The game also works in Safari. It should update when re-opened online; if a prior cached version remains, close and reopen the Home Screen app, or open the link in Safari and refresh.
 
-### Tech and data
-HTML Canvas / JavaScript / offline-capable service worker / zero external dependencies. Version 0.2 carries over your shot count and prior star win from version 0.1; planet impact wins must now be earned via orbital insertion. Results remain stored locally in your browser/PWA storage. No accounts or servers are involved.
+Open link in Safari, Share → Add to Home Screen. Your existing Home Screen game updates automatically after cache refresh (close/open while online). Old version 0.2 shots and wins are carried forward. If an old version persists, launch in Safari and reload.
+
+### Game controls
+
+Launch target, angle and speed: same as before. When green capture circle is reached: game pauses. Set direction:
+- BRAKE: slow tangential speed relative to planet;
+- BOOST: increase tangential speed;
+- RADIAL −: thrust inward;
+- RADIAL +: thrust outward.
+Select Burn Δv and tap APPLY BURN. It deducts fuel immediately and leaves you paused to reconsider; tap COAST ▶ to continue. Pause at any time for another burn. Retrograde/prograde are defined relative to the current sign of angular momentum around the target. There is no automatic insertion.
