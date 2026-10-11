@@ -1,5 +1,5 @@
 {
-  "version": "0.8.1",
-  "displayVersion": "V0.8.1",
-  "notes": "Removed zoom buttons. Pinch-to-zoom and drag-to-pan remain supported."
+  "version": "0.9.0",
+  "displayVersion": "V0.9",
+  "notes": "Wait to periapsis and apoapsis during orbital flight; automatic fast-coast, precise pause and manual burns."
 }
