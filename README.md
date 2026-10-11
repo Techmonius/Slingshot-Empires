@@ -1,6 +1,16 @@
-# Slingshot Empires — Flight Lab v0.6
+# Slingshot Empires — Flight Lab v0.7
 
 Live game: https://techmonius.github.io/Slingshot-Empires/
+
+## New in v0.7 — wait for an orbital transfer window
+
+A prelaunch **WAIT FOR TRANSFER WINDOW** slider advances the start of the mission in simulation time, from **T+0.0 s to T+120.0 s**, in **0.5 s steps**. The **NOW**, **−10 s**, **−1 s**, **+1 s**, and **+10 s** buttons allow coarse adjustments. Backward adjustment is a *planning undo*, not reverse time travel in active gameplay.
+
+Every adjustment moves all three planets consistently along their predefined circular orbits and recomputes the actual no-burn launch trajectory, using the launch planet's **new position and orbital velocity**. Touch aiming, target selection, trajectories and the displayed mission clock all reference the planned epoch. When you tap **LAUNCH ROCKET**, flight begins at the selected epoch and proceeds normally. Timeout is measured **from launch**, not from the start of the star system's timeline. Restarting a mission retains the selected wait value so you can try a different launch angle; tap **NOW** to reset time.
+
+The wait is intentionally free in this *Flight Lab* prototype. Future strategy-game development can assign real in-game economic costs or turn constraints to waiting, and show optimized or approximate transfer windows as research/upgrades.
+
+**This is simulated time**, not real-world seconds, and planets remain on preset circular orbits. Inside a planetary encounter, the local two-body approximation is unchanged.
 
 ## New in v0.6 — independent aim angle + burn delta-v
 
