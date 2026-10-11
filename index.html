@@ -308,7 +308,7 @@ function readSaved(){
  }catch{return {shots:0,wins:[],grades:{}}}
 }
 const saved=readSaved();
-let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,target='aurora',angle=28,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,burnDragging=false,rocket=null,simT=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=0,burnAngle=0,burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
+let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,target='aurora',angle=28,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,burnDragging=false,rocket=null,simT=0,waitTime=0,launchEpoch=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=0,burnAngle=0,burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
 function store(){try{localStorage.setItem(DATA_KEY,JSON.stringify({shots,wins:[...wins],grades}))}catch{}}
 function orbitPos(p,t){const omega=Math.sqrt(MU_STAR/(p.orbit**3));const q=p.phase+omega*t;return {x:p.orbit*Math.cos(q),y:p.orbit*Math.sin(q),vx:-p.orbit*omega*Math.sin(q),vy:p.orbit*omega*Math.cos(q)}}
 function bodiesAt(t){return PLANETS.map(p=>({...p,...orbitPos(p,t)}))}
@@ -319,9 +319,9 @@ function acceleration(x,y,t){
  return {ax,ay};
 }
 function startRocket(){
- const h=getBody('home',0),a=angle*RAD,ux=Math.cos(a),uy=Math.sin(a);
+ const h=getBody('home',waitTime),a=angle*RAD,ux=Math.cos(a),uy=Math.sin(a);
  const x=h.x+(h.r+5)*ux,y=h.y+(h.r+5)*uy;
- return {x,y,vx:h.vx+speed*ux,vy:h.vy+speed*uy,t:0};
+ return {x,y,vx:h.vx+speed*ux,vy:h.vy+speed*uy,t:waitTime};
 }
 function advance(body,dt){
  const a=acceleration(body.x,body.y,body.t),nx=body.x+body.vx*dt+.5*a.ax*dt*dt,ny=body.y+body.vy*dt+.5*a.ay*dt*dt;
@@ -332,7 +332,7 @@ function checkCollision(r){
  if(Math.hypot(r.x,r.y)<STAR.r+2)return {kind:target==='star'?'win':'lost',hit:'star',label:'The ship fell into the star.'};
  for(const p of PLANETS){const q=orbitPos(p,r.t);if(Math.hypot(r.x-q.x,r.y-q.y)<p.r+3){return {kind:'lost',hit:p.id,label:p.id==='home'?'The rocket returned to HOME.':`The ship crashed into ${p.name}. Try a wider approach before braking.`};}}
  if(Math.hypot(r.x,r.y)>510)return {kind:'lost',hit:'escape',label:'The ship escaped the system.'};
- if(r.t>(localEncounter?280:100))return {kind:'lost',hit:'timeout',label:'You ran out of flight time before completing the orbit.'};
+ if(r.t-launchEpoch>(localEncounter?280:100))return {kind:'lost',hit:'timeout',label:'You ran out of flight time before completing the orbit.'};
  if(localEncounter&&target!=='star'){
   const o=orbitalElements(r,target);
   if(o&&o.dist>ORBIT_LIMIT[target]*1.5)return {kind:'lost',hit:'escape',label:`The rocket flew outside ${o.p.name}'s operational capture region.`};
@@ -359,12 +359,15 @@ function updateControls(){
  $('angleValue').textContent=`${angle.toFixed(1)}°`;
  $('speedValue').textContent=speed.toFixed(1);
  $('angleRange').value=angle;$('speedRange').value=speed;
+ $('waitRange').value=waitTime;
+ $('waitValue').textContent=`T + ${waitTime.toFixed(1)} s`;
+ for(const id of ['waitRange','waitZero','waitMinusTen','waitMinusOne','waitPlusOne','waitPlusTen'])$(id).disabled=phase!=='aiming';
  $('shotCount').textContent=shots;$('winCount').textContent=wins.size;
  $('clock').textContent=`T + ${simT.toFixed(1)}s`;
  $('objectiveLabel').textContent=`${target==='star'?'Impact':'Orbit'} ${MISSION[target].name}`;
  $('objectiveHint').textContent=MISSION[target].hint;
  $('controlTitle').textContent=phase==='aiming'?'Launch parameters':phase==='flying'?'Manual orbital capture':'Flight complete';
- $('controlSub').textContent=phase==='aiming'?'Relative to moving HOME planet':phase==='flying'?(localEncounter?'Pilot the burn; safe orbit requires a full revolution':'Approach the target capture zone'):'Adjust launch parameters to retry';
+ $('controlSub').textContent=phase==='aiming'?'Advance time to find better planet alignment':phase==='flying'?(localEncounter?'Pilot the burn; safe orbit requires a full revolution':'Approach the target capture zone'):'Adjust launch parameters to retry';
  $('statusPill').textContent=phase==='aiming'?'READY':phase==='flying'?(paused?'PAUSED':'IN FLIGHT'):(phase==='won'?'SUCCESS':'LOST');
  $('statusPill').className='status-pill '+(phase==='flying'?'moving':phase==='won'?'won':phase==='lost'?'lost':'');
  const disable=phase==='flying';for(const id of ['angleRange','speedRange','angleMinus','anglePlus','angleMinusFine','anglePlusFine','speedMinus','speedPlus'])$(id).disabled=disable;
@@ -417,14 +420,15 @@ function updateControls(){
  for(const id of ['aurora','cinder','star'])$('mission'+id[0].toUpperCase()+id.slice(1)).style.color=id===target?'#e5fbff':'#7fa3c2';
 }
 function chooseTarget(id){if(!MISSION[id])return;target=id;resetFlight();}
-function resetFlight(){phase='aiming';rocket=null;simT=0;paused=false;accum=0;result=null;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;$('resultShade').classList.remove('show');predict();updateControls();}
+function resetFlight(){phase='aiming';rocket=null;simT=waitTime;launchEpoch=waitTime;paused=false;accum=0;result=null;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;$('resultShade').classList.remove('show');predict();updateControls();}
 function changeAim(nextAngle,nextSpeed){angle=CLAMP(Math.round(nextAngle*10)/10,-180,180);speed=CLAMP(Math.round(nextSpeed*10)/10,0,65);predict();updateControls();}
+function setWaitTime(t){if(phase!=='aiming')return;waitTime=CLAMP(Math.round(t*2)/2,0,120);launchEpoch=waitTime;simT=waitTime;predict();updateControls();}
 function setBurnPower(nextPower){burnPower=Math.round(CLAMP(nextPower,0,Math.min(20,fuel))*100)/100;updateControls();}
 function setBurnAngle(nextAngle){burnAngle=CLAMP(Math.round(nextAngle*10)/10,-180,180);updateControls();}
 function launch(){
  if(phase==='flying')return;
  if(phase!=='aiming'){resetFlight();}
- shots++;store();rocket=startRocket();simT=0;phase='flying';paused=false;accum=0;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;updateControls();
+ shots++;store();launchEpoch=waitTime;rocket=startRocket();simT=launchEpoch;phase='flying';paused=false;accum=0;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;updateControls();
 }
 const trail=[];
 function endFlight(outcome){
@@ -442,7 +446,7 @@ function endFlight(outcome){
  $('dialogSymbol').style.color=phase==='won'?'#79e9b8':'#ff849d';
  $('dialogEyebrow').textContent=phase==='won'?'MISSION COMPLETE':'FLIGHT FAILED';
  $('dialogTitle').textContent=phase==='won'?(target==='star'?'Stellar impact!':'Stable orbit achieved!'):'Flight failed';
- $('dialogDetail').textContent=phase==='won'?(target==='star'?`${MISSION[target].success} Flight time: ${simT.toFixed(1)}s.`:`${MISSION[target].success} Orbit grade ${finalScore?.grade||'—'} (${finalScore?.score??'—'}/100). Best recorded: ${grades[target]??'—'}/100. Future resource extraction potential. Fuel left: ${fuel.toFixed(2)} Δv.`):`${outcome.label} Try a new angle or launch speed.`;
+ $('dialogDetail').textContent=phase==='won'?(target==='star'?`${MISSION[target].success} Flight time: ${(simT-launchEpoch).toFixed(1)}s.`:`${MISSION[target].success} Orbit grade ${finalScore?.grade||'—'} (${finalScore?.score??'—'}/100). Best recorded: ${grades[target]??'—'}/100. Future resource extraction potential. Fuel left: ${fuel.toFixed(2)} Δv.`):`${outcome.label} Try a new angle or launch speed.`;
  $('dialogNext').textContent=phase==='won'?'NEXT TARGET':'CHANGE TARGET';
  $('resultShade').classList.add('show');
 }
@@ -542,7 +546,7 @@ function render(){
  const bg=ctx.createRadialGradient(view.cx,view.cy,10,view.cx,view.cy,Math.max(W,H)*.69);
  bg.addColorStop(0,'#142543');bg.addColorStop(.48,'#0a1930');bg.addColorStop(1,'#061021');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
  for(const s of stars){ctx.globalAlpha=s.opacity;ctx.fillStyle='#c4d8ff';ctx.fillRect(s.x,s.y,s.s,s.s)}ctx.globalAlpha=1;
- const center=worldToScreen(0,0),t=phase==='aiming'?0:simT;
+ const center=worldToScreen(0,0),t=simT;
  if(!localEncounter)for(const p of PLANETS){lineCircle(center.x,center.y,p.orbit*camera.scale,p.id==='home'?'#6283ad3b':'#7087ac2c',1,[3,5]);}
  if(target!=='star'){
   const p=getBody(target,t),loc=worldToScreen(p.x,p.y);
@@ -588,7 +592,7 @@ function render(){
  }
  for(const p of PLANETS)planetDraw(p,t);
  planetDraw(STAR,t);
- const home=getBody('home',0),hp=worldToScreen(home.x,home.y);
+ const home=getBody('home',t),hp=worldToScreen(home.x,home.y);
  if(phase==='aiming'){
   const a=angle*RAD,arrow=Math.max(32,Math.min(82,28+speed*.85));
   const hx=hp.x+Math.cos(a)*arrow,hy=hp.y+Math.sin(a)*arrow;
@@ -634,12 +638,12 @@ canvas.addEventListener('pointerdown',e=>{
   }
   return;
  }
- const home=orbitPos(PLANETS[0],0),homeS=worldToScreen(home.x,home.y);
+ const home=orbitPos(PLANETS[0],waitTime),homeS=worldToScreen(home.x,home.y);
  if(distance(x,y,homeS)<Math.max(26,PLANETS[0].r*view.scale+15)){
   if(phase!=='aiming')resetFlight();dragging=true;pointerId=e.pointerId;canvas.setPointerCapture(e.pointerId);e.preventDefault();return;
  }
  for(const id of ['aurora','cinder','star']){
-  const p=getBody(id,0),pos=worldToScreen(p.x,p.y);
+  const p=getBody(id,waitTime),pos=worldToScreen(p.x,p.y);
   if(distance(x,y,pos)<Math.max(24,p.r*view.scale+13)){chooseTarget(id);return;}
  }
 });
@@ -652,13 +656,16 @@ canvas.addEventListener('pointermove',e=>{
   burnPower=Math.round(CLAMP(dist/Math.max(65,Math.min(view.width,view.height)*.30)*20,0,Math.min(20,fuel))*100)/100;
   updateControls();
  }else if(dragging&&phase==='aiming'){
-  const home=orbitPos(PLANETS[0],0),hp=worldToScreen(home.x,home.y);
+  const home=orbitPos(PLANETS[0],waitTime),hp=worldToScreen(home.x,home.y);
   const dx=x-hp.x,dy=y-hp.y,dist=Math.hypot(dx,dy);
   if(dist>10)changeAim(Math.atan2(dy,dx)/RAD,CLAMP(dist/Math.max(80,view.width*.3)*65,0,65));
  }
  e.preventDefault();
 });
 for(const evt of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(evt,e=>{if(e.pointerId===pointerId){dragging=false;burnDragging=false;pointerId=null}});
+$('waitRange').addEventListener('input',e=>setWaitTime(+e.target.value));
+$('waitZero').addEventListener('click',()=>setWaitTime(0));
+for(const [id,dt] of [['waitMinusTen',-10],['waitMinusOne',-1],['waitPlusOne',1],['waitPlusTen',10]])$(id).addEventListener('click',()=>setWaitTime(waitTime+dt));
 $('angleRange').addEventListener('input',e=>changeAim(+e.target.value,speed));
 $('speedRange').addEventListener('input',e=>changeAim(angle,+e.target.value));
 $('angleMinus').addEventListener('click',()=>changeAim(angle-1,speed));$('anglePlus').addEventListener('click',()=>changeAim(angle+1,speed));
@@ -682,9 +689,9 @@ resize();predict();updateControls();requestAnimationFrame(frame);
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));
 // Expose a tiny diagnostic API for automated regression tests, not gameplay.
 window.__flightLab={getState:()=>({phase,target,angle,speed,simT,shots,wins:[...wins],prediction,
- fuel,paused,rocket,localEncounter,burnPower,burnAngle,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
+ waitTime,launchEpoch,fuel,paused,rocket,localEncounter,burnPower,burnAngle,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
  predicted:burnPreview?{coast:burnPreview.coast?.rating,after:burnPreview.after?.rating,points:burnPreview.after?.points.length,ending:burnPreview.after?.ending}:null,grades}),
- setAim:(a,v)=>{if(phase==='aiming')changeAim(a,v)},chooseTarget,resetFlight,
+ setAim:(a,v)=>{if(phase==='aiming')changeAim(a,v)},setWaitTime,chooseTarget,resetFlight,
  setBurn:(a,power)=>{setBurnAngle(a);setBurnPower(power)},
  applyBurn,advanceTest:(n=1)=>{for(let i=0;i<n&&phase==='flying'&&!paused;i++)tickPhysics(.055);updateControls();}};
 })();
