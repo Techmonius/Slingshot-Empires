@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Slingshot">
   <meta name="description" content="A tiny orbital strategy game. Aim, launch, and intercept moving worlds.">
-  <meta property="og:title" content="Slingshot Empires — Prototype 0.6">
+  <meta property="og:title" content="Slingshot Empires — Prototype 0.7">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -421,7 +421,7 @@ function updateControls(){
  for(const id of ['aurora','cinder','star'])$('mission'+id[0].toUpperCase()+id.slice(1)).style.color=id===target?'#e5fbff':'#7fa3c2';
 }
 function chooseTarget(id){if(!MISSION[id])return;target=id;resetFlight();}
-function resetFlight(){phase='aiming';rocket=null;simT=waitTime;launchEpoch=waitTime;paused=false;accum=0;result=null;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;$('resultShade').classList.remove('show');predict();updateControls();}
+function resetFlight(){phase='aiming';rocket=null;simT=waitTime;launchEpoch=waitTime;paused=false;accum=0;result=null;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;$('resultShade').classList.remove('show');predict();updateControls();applyPendingRelease();}
 function changeAim(nextAngle,nextSpeed){angle=CLAMP(Math.round(nextAngle*10)/10,-180,180);speed=CLAMP(Math.round(nextSpeed*10)/10,0,65);predict();updateControls();}
 function setWaitTime(t){if(phase!=='aiming')return;waitTime=CLAMP(Math.round(t*2)/2,0,120);launchEpoch=waitTime;simT=waitTime;predict();updateControls();}
 function setBurnPower(nextPower){burnPower=Math.round(CLAMP(nextPower,0,Math.min(20,fuel))*100)/100;updateControls();}
@@ -687,7 +687,49 @@ $('dialogRetry').addEventListener('click',resetFlight);$('dialogNext').addEventL
 window.addEventListener('resize',resize);
 if('ResizeObserver' in window)new ResizeObserver(resize).observe(arena);
 resize();predict();updateControls();requestAnimationFrame(frame);
-if('serviceWorker' in navigator&&location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));
+// Check for new releases when the Home Screen app opens, resumes, and while it remains open.
+// Defer updates during a live flight so the player's maneuver is not interrupted.
+const APP_RELEASE='0.7.1';
+let checkingRelease=false, pendingRelease=null, applyingRelease=false;
+function applyPendingRelease(){
+ if(!pendingRelease||phase==='flying'||applyingRelease)return;
+ const url=new URL(location.href);
+ if(url.searchParams.get('release')===pendingRelease)return;
+ applyingRelease=true;
+ url.searchParams.set('release',pendingRelease);
+ location.replace(url.toString());
+}
+async function checkAppRelease(){
+ if(checkingRelease||applyingRelease||navigator.onLine===false)return;
+ checkingRelease=true;
+ try{
+  if('serviceWorker' in navigator){
+   const registration=await navigator.serviceWorker.getRegistration();
+   if(registration)registration.update().catch(()=>{});
+  }
+  const response=await fetch('./release.json?fresh='+Date.now(),{cache:'no-store'});
+  if(!response.ok)return;
+  const release=await response.json();
+  if(typeof release.version==='string'&&release.version!==APP_RELEASE){
+   pendingRelease=release.version;
+   applyPendingRelease();
+  }
+ }catch(e){/* Offline launch retains the cached playable game. */}
+ finally{checkingRelease=false;}
+}
+if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
+ navigator.serviceWorker.addEventListener('controllerchange',checkAppRelease);
+ window.addEventListener('load',()=>{
+  navigator.serviceWorker.register('./service-worker.js',{updateViaCache:'none'}).then(reg=>{
+   reg.update().catch(()=>{});
+  }).catch(()=>{});
+  checkAppRelease();
+ });
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkAppRelease()});
+ window.addEventListener('pageshow',checkAppRelease);
+ window.addEventListener('focus',checkAppRelease);
+ setInterval(checkAppRelease,90000);
+}
 // Expose a tiny diagnostic API for automated regression tests, not gameplay.
 window.__flightLab={getState:()=>({phase,target,angle,speed,simT,shots,wins:[...wins],prediction,
  waitTime,launchEpoch,fuel,paused,rocket,localEncounter,burnPower,burnAngle,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
