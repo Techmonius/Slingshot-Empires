@@ -680,14 +680,15 @@ function render(){
     drawPredictionLine(burnPreview.after,'rgba(67,222,247,.95)',[],2.8);
     ctx.restore();
    }else drawPredictionLine(burnPreview.after,'rgba(77,218,251,.95)',[],2.8);
-   const pts=burnPreview.after.extrema;
-   if(pts){
-    for(const [label,mark,offset] of [['Pe',pts.peri,-10],['Ap',pts.apo,12]]){
-     const x=loc.x+mark.dx*camera.scale,y=loc.y+mark.dy*camera.scale;
-     if(x<8||x>W-8||y<8||y>H-8)continue;
-     ctx.fillStyle=label==='Pe'?'#ffcf92':'#bce7ff';ctx.beginPath();ctx.arc(x,y,3.4,0,TAU);ctx.fill();
-     textLabel(`${label} ${Math.round(Math.hypot(mark.dx,mark.dy))}`,x,y+offset,label==='Pe'?'#ffcf92':'#bce7ff',10,850);
-    }
+  }
+  // Show periapsis/apoapsis on the currently selected path, even for a zero-Δv coast.
+  const marked=burnPreview.after||burnPreview.coast,pts=marked?.extrema;
+  if(pts){
+   for(const [label,mark,offset] of [['Pe',pts.peri,-10],['Ap',pts.apo,12]]){
+    const x=loc.x+mark.dx*camera.scale,y=loc.y+mark.dy*camera.scale;
+    if(x<8||x>W-8||y<8||y>H-8)continue;
+    ctx.fillStyle=label==='Pe'?'#ffcf92':'#bce7ff';ctx.beginPath();ctx.arc(x,y,3.4,0,TAU);ctx.fill();
+    textLabel(`${label} ${Math.round(Math.hypot(mark.dx,mark.dy))}`,x,y+offset,label==='Pe'?'#ffcf92':'#bce7ff',10,850);
    }
   }
  }
