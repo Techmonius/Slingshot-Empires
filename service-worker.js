@@ -1,4 +1,4 @@
-const CACHE='slingshot-empires-v081-pinch-only';
+const CACHE='slingshot-empires-v09-apsis-wait';
 const ASSETS=['./','./index.html','./manifest.webmanifest','./icons/icon-192.png','./release.json'];
 self.addEventListener('install',event=>event.waitUntil(
  caches.open(CACHE).then(cache=>cache.addAll(ASSETS.map(path=>new Request(path,{cache:'reload'}))))
