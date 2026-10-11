@@ -399,14 +399,14 @@ function updateControls(){
  for(const id of ['aurora','cinder','star'])$('mission'+id[0].toUpperCase()+id.slice(1)).style.color=id===target?'#e5fbff':'#7fa3c2';
 }
 function chooseTarget(id){if(!MISSION[id])return;target=id;resetFlight();}
-function resetFlight(){phase='aiming';rocket=null;simT=0;paused=false;accum=0;result=null;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;$('resultShade').classList.remove('show');predict();updateControls();}
+function resetFlight(){phase='aiming';rocket=null;simT=0;paused=false;accum=0;result=null;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;$('resultShade').classList.remove('show');predict();updateControls();}
 function changeAim(nextAngle,nextSpeed){angle=CLAMP(Math.round(nextAngle*10)/10,-180,180);speed=CLAMP(Math.round(nextSpeed*10)/10,0,65);predict();updateControls();}
 function setBurnPower(nextPower){burnPower=Math.round(CLAMP(nextPower,0,Math.min(20,fuel))*100)/100;updateControls();}
 function setBurnAngle(nextAngle){burnAngle=CLAMP(Math.round(nextAngle*10)/10,-180,180);updateControls();}
 function launch(){
  if(phase==='flying')return;
  if(phase!=='aiming'){resetFlight();}
- shots++;store();rocket=startRocket();simT=0;phase='flying';paused=false;accum=0;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;updateControls();
+ shots++;store();rocket=startRocket();simT=0;phase='flying';paused=false;accum=0;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;updateControls();
 }
 const trail=[];
 function endFlight(outcome){
