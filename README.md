@@ -1,6 +1,14 @@
-# Slingshot Empires — Flight Lab v0.4
+# Slingshot Empires — Flight Lab v0.5
 
 Live game: https://techmonius.github.io/Slingshot-Empires/
+
+## New in v0.5 — fine maneuver control
+
+- **Burn Δv ranges from 0.00 to 20.00**, limited by available fuel, and supports 0.01 increments. Zero is the default.
+- Five touch controls: **0**, **−0.10**, **−0.01**, **+0.01**, and **+0.10**.
+- A zero burn is a real **coast**: no fuel consumed, gray no-burn trajectory and corresponding orbit grade remain visible, and APPLY BURN is disabled. Press **COAST** to continue.
+- Launch Δv now ranges from 0.0 to 65.0 with 0.1 increments (previously minimum 8.0).
+- Existing saved mission results and orbit grades are preserved.
 
 ## New in v0.4 — orbit planning
 
