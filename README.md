@@ -1,6 +1,21 @@
-# Slingshot Empires — Flight Lab v0.8.1
+# Slingshot Empires — Flight Lab v0.9
 
 Live game: https://techmonius.github.io/Slingshot-Empires/
+
+## v0.9 — wait for orbital maneuver points
+
+During a planetary encounter, two new buttons are available in the **manual thruster** planner:
+
+- **WAIT TO PERIAPSIS:** Fast-coasts to the nearest reachable point of minimum planet-centered radius (Pe).
+- **WAIT TO APOAPSIS:** Fast-coasts to the nearest reachable point of maximum planet-centered radius (Ap). Only applicable to a bound orbit.
+
+The trajectory follows the **same planet-relative, velocity-Verlet simulation used during manual coasting**, rather than teleporting the rocket or snapping it to a preset orbital path. It runs faster while waiting, then automatically **pauses at the radial-velocity turning point** with no fuel consumed. The player can inspect the updated gray coast and cyan burn previews and choose any burn angle and Δv.
+
+The buttons display the estimated simulation-time interval to the next reachable apsis. If the ship has a near-circular orbit with indistinct apsides, is on an escape path without an apoapsis, would crash before reaching the requested point, or would exceed the flight limit, the affected button is disabled. A hyperbolic inbound approach can still coast to periapsis. **STOP WARP** or the on-map pause control cancels an ongoing wait and leaves the ship where it is. These mechanics do not guarantee orbital capture: bad trajectories can still crash or escape.
+
+Pe and Ap markers are drawn even for **0 Δv**, so the player can view orbital extremes on the gray coast projection. No mining or resource throughput systems are implemented yet. The game retains its simplified two-body model within the capture zone.
+
+Tested with both bound-elliptical apsides and unbound incoming periapsis, cancellations, and full Cinder orbital capture (S/90, 21 Δv remaining) after waiting to both apsides.
 
 ## v0.8.1 — pinch-only map navigation
 
