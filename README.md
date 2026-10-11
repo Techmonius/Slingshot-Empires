@@ -2,6 +2,13 @@
 
 Live game: https://techmonius.github.io/Slingshot-Empires/
 
+## Automatic installed-app updates (0.7.1 maintenance)
+
+- When the app launches or returns to the foreground, it checks `release.json` for a newer version and asks the service worker to update.
+- When a newer release is ready and the user is **not actively flying**, the app reloads with a release-specific URL, bypassing old browser HTML caching. If the user is mid-flight, reloading is postponed until they reset the mission.
+- App-shell HTML uses network-first fetch with `cache: 'no-store'`; previously cached files remain available as an offline fallback. This only works when online and after GitHub Pages has deployed the new commit.
+- **One-time transition note:** An older installed v0.6/v0.7 page doesn't contain the new update checker, so a manual Safari refresh or fully closing and reopening the Home Screen app may still be needed to pick up this initial updater. After that, subsequent releases are checked automatically. Device behavior is subject to iOS Safari/PWA service-worker lifecycle.
+
 ## New in v0.7 — wait for an orbital transfer window
 
 A prelaunch **WAIT FOR TRANSFER WINDOW** slider advances the start of the mission in simulation time, from **T+0.0 s to T+120.0 s**, in **0.5 s steps**. The **NOW**, **−10 s**, **−1 s**, **+1 s**, and **+10 s** buttons allow coarse adjustments. Backward adjustment is a *planning undo*, not reverse time travel in active gameplay.
