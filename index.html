@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Slingshot">
   <meta name="description" content="A tiny orbital strategy game. Aim, launch, and intercept moving worlds.">
-  <meta property="og:title" content="Slingshot Empires — Prototype 0.10">
+  <meta property="og:title" content="Slingshot Empires — Prototype 0.11">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -191,13 +191,14 @@
       .mission-link{margin-top:2px}
       .burn-planner{padding:5px}
     }
+    .launch-reference{font-size:9px;color:#94c1e2;line-height:1.25;margin:-1px 0 5px;letter-spacing:.015em}
     @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
   </style>
 </head>
 <body>
 <div class="app">
   <header class="top">
-    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.10</span></div></div>
+    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.11</span></div></div>
     <div class="stats"><div class="stat">Shots <strong id="shotCount">0</strong></div><div class="stat">Wins <strong id="winCount">0</strong>/3</div></div>
   </header>
   <main class="arena" id="arena" aria-label="Interactive solar system. Drag outward from the blue home planet to aim a rocket.">
@@ -214,9 +215,10 @@
     <div class="mode-row"><div><div class="mode-title" id="controlTitle">Launch parameters</div><div class="mode-sub" id="controlSub">Relative to moving HOME planet</div></div><span id="statusPill" class="status-pill">READY</span><button id="toggleControls" class="panel-toggle" type="button" aria-controls="controlBody" aria-expanded="true" aria-label="Collapse control panel to enlarge map">MAP ↑</button></div>
     <div class="control-body" id="controlBody">
     <div id="planningPanel"><div class="controls-grid">
-      <div class="slider-col"><div class="slider-head"><label for="angleRange">Angle</label><output id="angleValue" for="angleRange">28.0°</output></div><input id="angleRange" type="range" min="-180" max="180" step="0.1" value="28"><div class="launch-angle-steps"><button class="step" id="angleMinus" aria-label="Decrease launch angle by one degree">−1°</button><button class="step" id="angleMinusFine" aria-label="Decrease launch angle by 0.1 degree">−0.1°</button><button class="step" id="anglePlusFine" aria-label="Increase launch angle by 0.1 degree">+0.1°</button><button class="step" id="anglePlus" aria-label="Increase launch angle by one degree">+1°</button></div></div>
+      <div class="slider-col"><div class="slider-head"><label for="angleRange">From prograde</label><output id="angleValue" for="angleRange">0.0°</output></div><input id="angleRange" type="range" min="-180" max="180" step="0.1" value="0" aria-label="Launch angle relative to orbital prograde; zero prograde, plus ninety radially outward, minus ninety inward, and one hundred eighty retrograde"><div class="launch-angle-steps"><button class="step" id="angleMinus" aria-label="Decrease launch angle by one degree">−1°</button><button class="step" id="angleMinusFine" aria-label="Decrease launch angle by 0.1 degree">−0.1°</button><button class="step" id="anglePlusFine" aria-label="Increase launch angle by 0.1 degree">+0.1°</button><button class="step" id="anglePlus" aria-label="Increase launch angle by one degree">+1°</button></div></div>
       <div class="slider-col"><div class="slider-head"><label for="speedRange">Launch Δv</label><output id="speedValue" for="speedRange">32.0</output></div><input id="speedRange" type="range" min="0" max="65" step="0.1" value="32"><div class="step-row"><button class="step" id="speedMinus" aria-label="Decrease launch delta v by 0.1">−0.1</button><button class="step" id="speedPlus" aria-label="Increase launch delta v by 0.1">+0.1</button></div></div>
     </div>
+    <div class="launch-reference">0° PROGRADE · +90° OUT · ±180° RETROGRADE · −90° IN</div>
     <div class="wait-panel" aria-label="Launch time planner">
       <div class="wait-head"><label for="waitRange">WAIT FOR TRANSFER WINDOW</label><output id="waitValue" for="waitRange">T + 0.0 s</output></div>
       <input id="waitRange" type="range" min="0" max="120" step="0.5" value="0" aria-label="Simulated launch time offset">
@@ -451,7 +453,7 @@ function setPanelCollapsed(collapsed){
  // Force Canvas resolution and hit-test camera to follow the resized play area.
  requestAnimationFrame(resize);
 }
-let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,target='aurora',angle=28,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,burnDragging=false,rocket=null,simT=0,waitTime=0,launchEpoch=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=0,burnAngle=0,warpTarget=null,warpStop=null,apsisCacheRocket=null,apsisCache=null,burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
+let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,target='aurora',angle=0,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,burnDragging=false,rocket=null,simT=0,waitTime=0,launchEpoch=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=0,burnAngle=0,warpTarget=null,warpStop=null,apsisCacheRocket=null,apsisCache=null,burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
 function store(){try{localStorage.setItem(DATA_KEY,JSON.stringify({shots,wins:[...wins],grades}))}catch{}}
 function orbitPos(p,t){const omega=Math.sqrt(MU_STAR/(p.orbit**3));const q=p.phase+omega*t;return {x:p.orbit*Math.cos(q),y:p.orbit*Math.sin(q),vx:-p.orbit*omega*Math.sin(q),vy:p.orbit*omega*Math.cos(q)}}
 function bodiesAt(t){return PLANETS.map(p=>({...p,...orbitPos(p,t)}))}
@@ -461,8 +463,17 @@ function acceleration(x,y,t){
  for(const p of PLANETS){const q=orbitPos(p,t),dx=x-q.x,dy=y-q.y; r=Math.max(p.r*.8,Math.hypot(dx,dy));factor=-p.mu/(r*r*r);ax+=factor*dx;ay+=factor*dy;}
  return {ax,ay};
 }
+// Aim in Home's rotating orbital frame: 0 prograde; +90 outward; -90 inward; 180 retrograde.
+function launchHeading(t,relativeAngle=angle){
+ const home=getBody('home',t);
+ return Math.atan2(home.vy,home.vx)-relativeAngle*RAD;
+}
+function launchAngleFromHeading(worldHeading,t){
+ const difference=launchHeading(t,0)-worldHeading;
+ return Math.atan2(Math.sin(difference),Math.cos(difference))/RAD;
+}
 function startRocket(){
- const h=getBody('home',waitTime),a=angle*RAD,ux=Math.cos(a),uy=Math.sin(a);
+ const h=getBody('home',waitTime),a=launchHeading(waitTime),ux=Math.cos(a),uy=Math.sin(a);
  const x=h.x+(h.r+5)*ux,y=h.y+(h.r+5)*uy;
  return {x,y,vx:h.vx+speed*ux,vy:h.vy+speed*uy,t:waitTime};
 }
@@ -777,7 +788,11 @@ function render(){
  planetDraw(STAR,t);
  const home=getBody('home',t),hp=worldToScreen(home.x,home.y);
  if(phase==='aiming'){
-  const a=angle*RAD,arrow=Math.max(32,Math.min(82,28+speed*.85));
+  const pro=launchHeading(t,0),referenceLength=30;
+  ctx.beginPath();ctx.moveTo(hp.x,hp.y);ctx.lineTo(hp.x+Math.cos(pro)*referenceLength,hp.y+Math.sin(pro)*referenceLength);
+  ctx.strokeStyle='rgba(121,233,184,.75)';ctx.lineWidth=1.7;ctx.setLineDash([3,4]);ctx.stroke();ctx.setLineDash([]);
+  textLabel('PRO',hp.x+Math.cos(pro)*(referenceLength+13),hp.y+Math.sin(pro)*(referenceLength+13),'#8bebc1',9,800);
+  const a=launchHeading(t),arrow=Math.max(32,Math.min(82,28+speed*.85));
   const hx=hp.x+Math.cos(a)*arrow,hy=hp.y+Math.sin(a)*arrow;
   ctx.beginPath();ctx.moveTo(hp.x,hp.y);ctx.lineTo(hx,hy);ctx.strokeStyle='#c4f8ff';ctx.lineWidth=2.6;ctx.stroke();
   ctx.save();ctx.translate(hx,hy);ctx.rotate(a);ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(-10,-5);ctx.lineTo(-10,5);ctx.closePath();ctx.fillStyle='#c4f8ff';ctx.fill();ctx.restore();
@@ -879,7 +894,7 @@ canvas.addEventListener('pointermove',e=>{
  }else if(dragging&&phase==='aiming'){
   const home=orbitPos(PLANETS[0],waitTime),hp=worldToScreen(home.x,home.y);
   const dx=x-hp.x,dy=y-hp.y,dist=Math.hypot(dx,dy);
-  if(dist>10)changeAim(Math.atan2(dy,dx)/RAD,CLAMP(dist/Math.max(80,view.width*.3)*65,0,65));
+  if(dist>10)changeAim(launchAngleFromHeading(Math.atan2(dy,dx),waitTime),CLAMP(dist/Math.max(80,view.width*.3)*65,0,65));
  }
  e.preventDefault();
 });
@@ -923,7 +938,7 @@ if('ResizeObserver' in window)new ResizeObserver(resize).observe(arena);
 resize();setCamera();predict();updateControls();requestAnimationFrame(frame);
 // Check for new releases when the Home Screen app opens, resumes, and while it remains open.
 // Defer updates during a live flight so the player's maneuver is not interrupted.
-const APP_RELEASE='0.10.0';
+const APP_RELEASE='0.11.0';
 let checkingRelease=false, pendingRelease=null, applyingRelease=false;
 function applyPendingRelease(){
  if(!pendingRelease||phase==='flying'||applyingRelease)return;
@@ -968,7 +983,7 @@ if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
 window.__flightLab={getState:()=>({phase,target,angle,speed,simT,shots,wins:[...wins],prediction,
  panelCollapsed,waitTime,launchEpoch,zoom:currentMap().zoom,panX:currentMap().panX,panY:currentMap().panY,viewMode:orbitCameraActive()?'orbit':'system',fuel,paused,rocket,localEncounter,warpTarget,warpStop,apsis:paused&&localEncounter?apsisForecast():null,burnPower,burnAngle,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
  predicted:burnPreview?{coast:burnPreview.coast?.rating,after:burnPreview.after?.rating,points:burnPreview.after?.points.length,ending:burnPreview.after?.ending}:null,grades}),
- setAim:(a,v)=>{if(phase==='aiming')changeAim(a,v)},setWaitTime,chooseTarget,resetFlight,
+ setAim:(a,v)=>{if(phase==='aiming')changeAim(a,v)},launchHeading,launchAngleFromHeading,setWaitTime,chooseTarget,resetFlight,
  setBurn:(a,power)=>{setBurnAngle(a);setBurnPower(power)},setPanelCollapsed,zoomMap,panMap,
  applyBurn,waitToApsis,stopWarp,advanceTest:(n=1)=>{for(let i=0;i<n&&phase==='flying'&&!paused;i++)tickPhysics(.055);updateControls();}};
 })();
