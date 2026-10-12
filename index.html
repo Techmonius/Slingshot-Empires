@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Slingshot">
   <meta name="description" content="A tiny orbital strategy game. Aim, launch, and intercept moving worlds.">
-  <meta property="og:title" content="Slingshot Empires — Prototype 0.11">
+  <meta property="og:title" content="Slingshot Empires — Prototype 0.12">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -198,7 +198,7 @@
 <body>
 <div class="app">
   <header class="top">
-    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.11</span></div></div>
+    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.12</span></div></div>
     <div class="stats"><div class="stat">Shots <strong id="shotCount">0</strong></div><div class="stat">Wins <strong id="winCount">0</strong>/3</div></div>
   </header>
   <main class="arena" id="arena" aria-label="Interactive solar system. Drag outward from the blue home planet to aim a rocket.">
@@ -238,8 +238,8 @@
         <div class="burn-title">MANUAL THRUSTER <span id="burnCost">Fuel cost 0.00</span></div>
         <div class="burn-aim-grid">
           <div class="slider-col">
-            <div class="slider-head"><label for="burnAngleRange">Burn angle</label><output id="burnAngleValue" for="burnAngleRange">0.0°</output></div>
-            <input id="burnAngleRange" type="range" min="-180" max="180" step="0.1" value="0">
+            <div class="slider-head"><label for="burnAngleRange">From prograde</label><output id="burnAngleValue" for="burnAngleRange">0.0°</output></div>
+            <input id="burnAngleRange" type="range" min="-180" max="180" step="0.1" value="0" aria-label="Burn angle relative to orbital prograde: zero along sideways orbital motion, plus ninety outward, minus ninety inward, and one hundred eighty retrograde">
             <div class="tiny-steps" aria-label="Burn direction fine controls">
               <button id="burnAngleMinus" aria-label="Decrease burn angle by one degree">−1°</button>
               <button id="burnAngleMinusFine" aria-label="Decrease burn angle by 0.1 degree">−.1°</button>
@@ -258,7 +258,7 @@
             </div>
           </div>
         </div>
-        <div class="angle-frame">0° → right · 90° ↓ down · Drag from rocket to aim · <button id="burnZero" class="burn-zero" style="border:0;background:transparent;font-size:10px;padding:1px 4px;text-decoration:underline">Reset Δv to 0</button></div>
+        <div class="angle-frame">0° PROGRADE · +90° OUT · ±180° RETRO · −90° IN · <button id="burnZero" class="burn-zero" style="border:0;background:transparent;font-size:10px;padding:1px 4px;text-decoration:underline">Reset Δv to 0</button></div>
         <div class="burn-readout" id="burnPrediction">Adjust burn direction and magnitude to preview your orbit.</div>
         <div class="grade-line" id="gradeLine"><strong class="grade-mark" id="gradeMark">—</strong><span class="grade-copy" id="gradeText">Proposed orbit quality • future extraction potential</span></div>
         <div class="apsis-controls" aria-label="Coast to an orbital maneuver point">
@@ -318,11 +318,33 @@ function burnVector(r,id,mode){
  if(mode==='in')return {x:-q.dx/q.dist,y:-q.dy/q.dist};
  return {x:q.dx/q.dist,y:q.dy/q.dist};
 }
+// Orbit-following basis: tangential prograde plus radial outward.
+// Positive 90° points away from the planet for either orbit direction.
+function orbitBurnBasis(r,id){
+ const q=encounterFrame(r,id);
+ if(!q||q.dist<1)return null;
+ const radialX=q.dx/q.dist,radialY=q.dy/q.dist;
+ const direction=q.tangent>=0?1:-1;
+ const proX=-direction*radialY,proY=direction*radialX;
+ return {proX,proY,radialX,radialY};
+}
+function orbitBurnDirection(r,id,relativeAngle=burnAngle){
+ const frame=orbitBurnBasis(r,id);if(!frame)return null;
+ const a=relativeAngle*RAD,c=Math.cos(a),v=Math.sin(a);
+ return {x:frame.proX*c+frame.radialX*v,
+         y:frame.proY*c+frame.radialY*v};
+}
+function orbitBurnAngleFromHeading(r,id,heading){
+ const frame=orbitBurnBasis(r,id);if(!frame)return 0;
+ const x=Math.cos(heading),y=Math.sin(heading);
+ const pro=x*frame.proX+y*frame.proY,out=x*frame.radialX+y*frame.radialY;
+ return Math.atan2(out,pro)/RAD;
+}
 function proposedBurn(){
  if(!localEncounter||!rocket||target==='star')return null;
- const dv=Math.min(burnPower,fuel),a=burnAngle*RAD;
- if(dv<=0)return null;
- return {...rocket,vx:rocket.vx+Math.cos(a)*dv,vy:rocket.vy+Math.sin(a)*dv};
+ const dv=Math.min(burnPower,fuel),dir=orbitBurnDirection(rocket,target);
+ if(dv<=0||!dir)return null;
+ return {...rocket,vx:rocket.vx+dir.x*dv,vy:rocket.vy+dir.y*dv};
 }
 function localAdvance(r,dt,id){
  const q=encounterFrame(r,id),rmag=Math.max(2,q.dist),factor=-q.p.mu/(rmag*rmag*rmag);
@@ -645,9 +667,8 @@ function tickPhysics(dt){
    localEncounter=true;encounterNotified=true;paused=true;accum=0;
    mapViews.orbit={zoom:1,panX:0,panY:0};setCamera();setPanelCollapsed(false);
    stableSweep=0;lastPolar=Math.atan2(q.dy,q.dx);
-   // Suggest a retrograde initial heading, but don't apply a burn automatically.
-   const retro=burnVector(rocket,target,'brake');
-   if(retro)burnAngle=Math.round(Math.atan2(retro.y,retro.x)/RAD*10)/10;
+   // Suggest local retrograde for orbit insertion; never burn automatically.
+   burnAngle=180;
    updateControls();return;
   }
  }
@@ -803,7 +824,14 @@ function render(){
   const s=worldToScreen(rocket.x,rocket.y);ctx.save();ctx.translate(s.x,s.y);ctx.rotate(Math.atan2(rocket.vy,rocket.vx)+PI/2);
   ctx.shadowColor='#7bdffe';ctx.shadowBlur=12;ctx.fillStyle='#e9fcff';ctx.beginPath();ctx.moveTo(0,-7);ctx.lineTo(4,5);ctx.lineTo(0,3);ctx.lineTo(-4,5);ctx.closePath();ctx.fill();ctx.restore();
    if(localEncounter&&paused&&target!=='star'){
-    const a=burnAngle*RAD,arrow=burnPower>0?Math.min(80,25+burnPower*3):25;
+    const tangent=orbitBurnDirection(rocket,target,0),burnDir=orbitBurnDirection(rocket,target);
+    if(tangent){
+     const refLength=26;
+     ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x+tangent.x*refLength,s.y+tangent.y*refLength);
+     ctx.setLineDash([3,4]);ctx.strokeStyle='rgba(121,233,184,.78)';ctx.lineWidth=1.7;ctx.stroke();ctx.setLineDash([]);
+     textLabel('PRO',s.x+tangent.x*(refLength+12),s.y+tangent.y*(refLength+12),'#8bebc1',9,800);
+    }
+    const a=burnDir?Math.atan2(burnDir.y,burnDir.x):0,arrow=burnPower>0?Math.min(80,25+burnPower*3):25;
     const sx=s.x+Math.cos(a)*arrow,sy=s.y+Math.sin(a)*arrow;
     ctx.strokeStyle=burnPower>0?'#ffd28f':'#a8b9ca';ctx.fillStyle=ctx.strokeStyle;ctx.lineWidth=2.2;
     ctx.setLineDash(burnPower>0?[]:[3,4]);
@@ -888,7 +916,7 @@ canvas.addEventListener('pointermove',e=>{
  const {x,y}=pt;
  if(burnDragging&&phase==='flying'&&localEncounter&&paused&&rocket){
   const ship=worldToScreen(rocket.x,rocket.y),dx=x-ship.x,dy=y-ship.y,dist=Math.hypot(dx,dy);
-  if(dist>4)burnAngle=CLAMP(Math.round(Math.atan2(dy,dx)/RAD*10)/10,-180,180);
+  if(dist>4)burnAngle=CLAMP(Math.round(orbitBurnAngleFromHeading(rocket,target,Math.atan2(dy,dx))*10)/10,-180,180);
   burnPower=Math.round(CLAMP(dist/Math.max(65,Math.min(view.width,view.height)*.30)*20,0,Math.min(20,fuel))*100)/100;
   updateControls();
  }else if(dragging&&phase==='aiming'){
@@ -938,7 +966,7 @@ if('ResizeObserver' in window)new ResizeObserver(resize).observe(arena);
 resize();setCamera();predict();updateControls();requestAnimationFrame(frame);
 // Check for new releases when the Home Screen app opens, resumes, and while it remains open.
 // Defer updates during a live flight so the player's maneuver is not interrupted.
-const APP_RELEASE='0.11.0';
+const APP_RELEASE='0.12.0';
 let checkingRelease=false, pendingRelease=null, applyingRelease=false;
 function applyPendingRelease(){
  if(!pendingRelease||phase==='flying'||applyingRelease)return;
@@ -984,7 +1012,7 @@ window.__flightLab={getState:()=>({phase,target,angle,speed,simT,shots,wins:[...
  panelCollapsed,waitTime,launchEpoch,zoom:currentMap().zoom,panX:currentMap().panX,panY:currentMap().panY,viewMode:orbitCameraActive()?'orbit':'system',fuel,paused,rocket,localEncounter,warpTarget,warpStop,apsis:paused&&localEncounter?apsisForecast():null,burnPower,burnAngle,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
  predicted:burnPreview?{coast:burnPreview.coast?.rating,after:burnPreview.after?.rating,points:burnPreview.after?.points.length,ending:burnPreview.after?.ending}:null,grades}),
  setAim:(a,v)=>{if(phase==='aiming')changeAim(a,v)},launchHeading,launchAngleFromHeading,setWaitTime,chooseTarget,resetFlight,
- setBurn:(a,power)=>{setBurnAngle(a);setBurnPower(power)},setPanelCollapsed,zoomMap,panMap,
+ setBurn:(a,power)=>{setBurnAngle(a);setBurnPower(power)},orbitBurnBasis,orbitBurnDirection,orbitBurnAngleFromHeading,setPanelCollapsed,zoomMap,panMap,
  applyBurn,waitToApsis,stopWarp,advanceTest:(n=1)=>{for(let i=0;i<n&&phase==='flying'&&!paused;i++)tickPhysics(.055);updateControls();}};
 })();
 </script>
