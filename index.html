@@ -495,16 +495,80 @@ function rebuildBurnPreview(){
  const coast=traceLocal(rocket,target),after=proposedBurn();
  burnPreview={coast,after:after?traceLocal(after,target):null};
 }
+const STATION_REQUIRED=3;
+const STATION_PLANETS=['aurora','cinder'];
+const freshStation=()=>({deliveries:0,best:[]});
 function readSaved(){
  try{
   const newer=localStorage.getItem(DATA_KEY),previous=localStorage.getItem(OLD_DATA_KEY),v02=localStorage.getItem(V02_DATA_KEY);
   const s=JSON.parse(newer||previous||v02||localStorage.getItem(FIRST_DATA_KEY)||'{}');
   const grades=s.grades&&typeof s.grades==='object'?Object.fromEntries(Object.entries(s.grades).filter(([k,v])=>k!=='star'&&MISSION[k]&&Number.isFinite(v)&&v>=0&&v<=100)):{};
-  return {shots:Number.isFinite(s.shots)?s.shots:0,grades,
-   wins:Array.isArray(s.wins)?s.wins.filter(x=>MISSION[x]&&(newer||previous||v02||x==='star')):[]};
- }catch{return {shots:0,wins:[],grades:{}}}
+  const wins=Array.isArray(s.wins)?s.wins.filter(x=>MISSION[x]&&(newer||previous||v02||x==='star')):[];
+  const stations={};
+  for(const id of STATION_PLANETS){
+   const raw=s.stations&&typeof s.stations==='object'&&!Array.isArray(s.stations)?s.stations[id]:null;
+   if(raw&&typeof raw==='object'&&!Array.isArray(raw)){
+    const deliveries=Number.isSafeInteger(raw.deliveries)?CLAMP(raw.deliveries,0,1000000):0;
+    const best=Array.isArray(raw.best)?raw.best.filter(v=>Number.isInteger(v)&&v>=0&&v<=100).sort((a,b)=>b-a).slice(0,Math.min(STATION_REQUIRED,deliveries)):[];
+    stations[id]={deliveries,best};
+   }else if(wins.includes(id)){
+    // Historical saves only recorded best grades, not exact trip counts.
+    // Grant one construction module for a previous planetary victory.
+    stations[id]={deliveries:1,best:Number.isFinite(grades[id])?[grades[id]]:[]};
+   }else stations[id]=freshStation();
+  }
+  return {shots:Number.isFinite(s.shots)?s.shots:0,grades,wins,stations};
+ }catch{return {shots:0,wins:[],grades:{},stations:{aurora:freshStation(),cinder:freshStation()}}}
 }
 const saved=readSaved();
+function stationSummary(id){
+ const entry=stations[id]||freshStation(),modules=Math.min(STATION_REQUIRED,entry.deliveries);
+ const operational=modules===STATION_REQUIRED;
+ const score=entry.best.length?Math.round(entry.best.reduce((a,b)=>a+b,0)/entry.best.length):null;
+ // Station logistics efficiency becomes operational when transport routes are implemented.
+ const efficiency=operational&&score!==null?Math.round(60+score*.4):null;
+ return {deliveries:entry.deliveries,modules,operational,score,efficiency,best:[...entry.best]};
+}
+function registerStationDelivery(id,score){
+ if(!STATION_PLANETS.includes(id)||!Number.isFinite(score)||score<0||score>100)return null;
+ const entry=stations[id],before=stationSummary(id);
+ entry.deliveries=Math.min(1000000,entry.deliveries+1);
+ entry.best.push(Math.round(score));entry.best.sort((a,b)=>b-a);
+ entry.best=entry.best.slice(0,STATION_REQUIRED);
+ const after=stationSummary(id);
+ return {before,after,commissioned:!before.operational&&after.operational,improved:before.operational&&after.efficiency>before.efficiency};
+}
+function updateStationUI(){
+ const current=STATION_PLANETS.includes(target)?stationSummary(target):null;
+ $('stationStatus').hidden=!current;
+ if(current){
+  $('stationStatus').className='station-chip'+(current.operational?' operational':'');
+  $('stationStatus').textContent=current.operational
+   ?'STATION ONLINE · '+(current.efficiency===null?'UNRATED':'LOGISTICS '+current.efficiency+'%')
+   :'STATION CONSTRUCTION · '+current.modules+'/'+STATION_REQUIRED+' ROCKETS';
+ }
+ for(const id of STATION_PLANETS){
+  const u=stationSummary(id),title=id==='aurora'?'Aurora':'Cinder';
+  $('station'+title+'Stage').textContent=u.operational?'OPERATIONAL':u.modules?'ASSEMBLING':'BLUEPRINT';
+  $('station'+title+'Bar').style.width=(u.modules/STATION_REQUIRED*100)+'%';
+  $('station'+title+'Description').textContent=u.operational
+   ?u.deliveries+' deliveries · Top orbit scores: '+(u.best.length?u.best.join(', '):'unrated')
+   :u.modules+' of '+STATION_REQUIRED+' modules · '+(STATION_REQUIRED-u.modules)+' more needed';
+  $('station'+title+'Score').textContent=u.operational
+   ?(u.efficiency===null?'QUALITY UNRATED':u.efficiency+'% LOGISTICS QUALITY')
+   :(u.score===null?'NO ORBIT QUALITY':u.score+'/100 AVG QUALITY');
+ }
+}
+function openStationDashboard(){
+ if(phase==='flying'&&!paused){paused=true;setPanelCollapsed(false);updateControls();}
+ updateStationUI();
+ $('stationShade').classList.add('show');
+ $('stationShade').setAttribute('aria-hidden','false');
+}
+function closeStationDashboard(){
+ $('stationShade').classList.remove('show');
+ $('stationShade').setAttribute('aria-hidden','true');
+}
 let panelCollapsed=false;
 function setPanelCollapsed(collapsed){
  if(panelCollapsed===collapsed)return;
@@ -517,8 +581,8 @@ function setPanelCollapsed(collapsed){
  // Force Canvas resolution and hit-test camera to follow the resized play area.
  requestAnimationFrame(resize);
 }
-let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,target='aurora',angle=0,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,burnDragging=false,rocket=null,simT=0,waitTime=0,launchEpoch=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=0,burnAngle=0,warpTarget=null,warpStop=null,apsisCacheRocket=null,apsisCache=null,burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
-function store(){try{localStorage.setItem(DATA_KEY,JSON.stringify({shots,wins:[...wins],grades}))}catch{}}
+let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,stations=saved.stations,target='aurora',angle=0,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,burnDragging=false,rocket=null,simT=0,waitTime=0,launchEpoch=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=0,burnAngle=0,warpTarget=null,warpStop=null,apsisCacheRocket=null,apsisCache=null,burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
+function store(){try{localStorage.setItem(DATA_KEY,JSON.stringify({shots,wins:[...wins],grades,stations}))}catch{}}
 function orbitPos(p,t){const omega=Math.sqrt(MU_STAR/(p.orbit**3));const q=p.phase+omega*t;return {x:p.orbit*Math.cos(q),y:p.orbit*Math.sin(q),vx:-p.orbit*omega*Math.sin(q),vy:p.orbit*omega*Math.cos(q)}}
 function bodiesAt(t){return PLANETS.map(p=>({...p,...orbitPos(p,t)}))}
 function getBody(id,t){if(id==='star')return {...STAR,x:0,y:0,vx:0,vy:0};const p=PLANETS.find(p=>p.id===id);return {...p,...orbitPos(p,t)}}
@@ -584,6 +648,7 @@ function updateControls(){
  $('clock').textContent=`T + ${simT.toFixed(1)}s`;
  $('objectiveLabel').textContent=`${target==='star'?'Impact':'Orbit'} ${MISSION[target].name}`;
  $('objectiveHint').textContent=MISSION[target].hint;
+ updateStationUI();
  $('controlTitle').textContent=phase==='aiming'?'Launch parameters':phase==='flying'?'Manual orbital capture':'Flight complete';
  $('controlSub').textContent=phase==='aiming'?'Advance time to find better planet alignment':phase==='flying'?(localEncounter?'Pilot the burn; safe orbit requires a full revolution':'Approach the target capture zone'):'Adjust launch parameters to retry';
  $('statusPill').textContent=phase==='aiming'?'READY':phase==='flying'?(warpTarget?'WARPING':paused?'PAUSED':'IN FLIGHT'):(phase==='won'?'SUCCESS':'LOST');
