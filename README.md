@@ -1,6 +1,19 @@
-# Slingshot Empires — Flight Lab v0.12
+# Slingshot Empires — Flight Lab v0.13
 
 Live game: https://techmonius.github.io/Slingshot-Empires/
+
+## v0.13 — launch Δv precision matches orbital burns
+
+The **interplanetary launch** screen now offers the same precise magnitude controls as the orbital-burn planner:
+
+- Launch delta-v range: **0.00–65.00**, in **0.01** increments.
+- Four touch-friendly adjustment buttons: **−0.10**, **−0.01**, **+0.01**, **+0.10**.
+- **Reset Δv to 0** button; zero is a permitted launch magnitude, with no forced minimum.
+- Launch magnitude displays **two decimal places** and is not rounded back to tenths in trajectory prediction, rocket initialization, or drag aiming.
+- Launch direction retains the independent, prograde-relative ±1°/±0.1° controls and 0.1° granularity. The orbit-burn controls are unchanged.
+- Launch controls remain inactive during a flight; mission wins and orbit grades are preserved.
+
+The new four-button cluster uses the already compact styling from the orbital maneuver controls so the play map remains as large as practical. Tested fine nudge buttons, zero and 65.00 boundaries, input updates, flight-side lockout, and complete Cinder S/90 capture with 21 Δv remaining.
 
 ## v0.12 — orbital burns use the same angle convention as launch
 
