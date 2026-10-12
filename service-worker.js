@@ -1,4 +1,4 @@
-const CACHE='slingshot-empires-v011-relative-launch';
+const CACHE='slingshot-empires-v012-relative-orbit';
 const ASSETS=['./','./index.html','./manifest.webmanifest','./icons/icon-192.png','./release.json'];
 self.addEventListener('install',event=>event.waitUntil(
  caches.open(CACHE).then(cache=>cache.addAll(ASSETS.map(path=>new Request(path,{cache:'reload'}))))
