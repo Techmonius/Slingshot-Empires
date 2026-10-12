@@ -536,12 +536,13 @@ function registerStationDelivery(id,score){
  entry.best.push(Math.round(score));entry.best.sort((a,b)=>b-a);
  entry.best=entry.best.slice(0,STATION_REQUIRED);
  const after=stationSummary(id);
- return {before,after,commissioned:!before.operational&&after.operational,improved:before.operational&&after.efficiency>before.efficiency};
+ return {before,after,commissioned:!before.operational&&after.operational,improved:before.operational&&after.best.some((score,i)=>score!==before.best[i])};
 }
 function updateStationUI(){
  const current=STATION_PLANETS.includes(target)?stationSummary(target):null;
  $('stationStatus').hidden=!current;
  if(current){
+  if(phase==='aiming')$('objectiveHint').textContent=current.operational?'Improve quality with a better orbital delivery':'Deliver '+(STATION_REQUIRED-current.modules)+' more safe-orbit rocket'+(STATION_REQUIRED-current.modules===1?'':'s');
   $('stationStatus').className='station-chip'+(current.operational?' operational':'');
   $('stationStatus').textContent=current.operational
    ?'STATION ONLINE · '+(current.efficiency===null?'UNRATED':'LOGISTICS '+current.efficiency+'%')
@@ -753,7 +754,7 @@ function endFlight(outcome){
    ?'Station commissioned! Quality: '+(after.efficiency===null?'unrated':after.efficiency+'%')+'.'
    :after.operational
     ?stationDelivery.improved
-      ?'Station upgraded to '+after.efficiency+'% orbital logistics quality.'
+      ?'Better delivery recorded · top orbit scores '+after.best.join(', ')+'. Logistics rating '+(after.efficiency??'unrated')+'%. '
       :'Station remains operational. '+after.deliveries+' deliveries completed; only a better top-three score improves quality.'
     :'Station assembly: '+after.modules+'/'+STATION_REQUIRED+' modules delivered.';
   $('dialogDetail').textContent+=' '+construction;
