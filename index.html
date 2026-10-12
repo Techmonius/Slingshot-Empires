@@ -729,11 +729,15 @@ const trail=[];
 function endFlight(outcome){
  warpTarget=null;warpStop=null;
  phase=outcome.kind==='win'?'won':'lost';result=outcome;
+ let stationDelivery=null;
  if(phase==='won'){
   wins.add(target);
   if(target!=='star'){
    finalScore=orbitRating(orbitalElements(rocket,target),target);
-   if(finalScore.score!==null)grades[target]=Math.max(grades[target]??0,finalScore.score);
+   if(finalScore.status==='SAFE ORBIT'&&Number.isFinite(finalScore.score)){
+    grades[target]=Math.max(grades[target]??0,finalScore.score);
+    stationDelivery=registerStationDelivery(target,finalScore.score);
+   }
   }
   store();
  }
@@ -742,7 +746,18 @@ function endFlight(outcome){
  $('dialogSymbol').style.color=phase==='won'?'#79e9b8':'#ff849d';
  $('dialogEyebrow').textContent=phase==='won'?'MISSION COMPLETE':'FLIGHT FAILED';
  $('dialogTitle').textContent=phase==='won'?(target==='star'?'Stellar impact!':'Stable orbit achieved!'):'Flight failed';
- $('dialogDetail').textContent=phase==='won'?(target==='star'?`${MISSION[target].success} Flight time: ${(simT-launchEpoch).toFixed(1)}s.`:`${MISSION[target].success} Orbit grade ${finalScore?.grade||'—'} (${finalScore?.score??'—'}/100). Best recorded: ${grades[target]??'—'}/100. Future resource extraction potential. Fuel left: ${fuel.toFixed(2)} Δv.`):`${outcome.label} Try a new angle or launch speed.`;
+ $('dialogDetail').textContent=phase==='won'?(target==='star'?`${MISSION[target].success} Flight time: ${(simT-launchEpoch).toFixed(1)}s.`:`${MISSION[target].success} Orbit grade ${finalScore?.grade||'—'} (${finalScore?.score??'—'}/100). Best recorded: ${grades[target]??'—'}/100. Fuel left: ${fuel.toFixed(2)} Δv.`):`${outcome.label} Try a new angle or launch speed.`;
+ if(stationDelivery){
+  const after=stationDelivery.after;
+  const construction=stationDelivery.commissioned
+   ?'Station commissioned! Quality: '+(after.efficiency===null?'unrated':after.efficiency+'%')+'.'
+   :after.operational
+    ?stationDelivery.improved
+      ?'Station upgraded to '+after.efficiency+'% orbital logistics quality.'
+      :'Station remains operational. '+after.deliveries+' deliveries completed; only a better top-three score improves quality.'
+    :'Station assembly: '+after.modules+'/'+STATION_REQUIRED+' modules delivered.';
+  $('dialogDetail').textContent+=' '+construction;
+ }
  $('dialogNext').textContent=phase==='won'?'NEXT TARGET':'CHANGE TARGET';
  $('resultShade').classList.add('show');
 }
@@ -1068,13 +1083,20 @@ $('coastButton').addEventListener('click',()=>{if(phase==='flying'){if(warpTarge
 $('togglePath').addEventListener('click',()=>{showPath=!showPath;$('togglePath').classList.toggle('selected',showPath);$('togglePath').setAttribute('aria-pressed',String(showPath));updateControls()});
 $('pauseButton').addEventListener('click',()=>{if(phase==='flying'){if(warpTarget)stopWarp();else{paused=!paused;setPanelCollapsed(!paused);updateControls()}}});
 for(const id of ['aurora','cinder','star'])$('mission'+id[0].toUpperCase()+id.slice(1)).addEventListener('click',()=>chooseTarget(id));
+$('stationButton').addEventListener('click',openStationDashboard);
+$('stationClose').addEventListener('click',closeStationDashboard);
+for(const id of STATION_PLANETS){
+ $('stationTo'+id[0].toUpperCase()+id.slice(1)).addEventListener('click',()=>{
+  closeStationDashboard();chooseTarget(id);
+ });
+}
 $('dialogRetry').addEventListener('click',resetFlight);$('dialogNext').addEventListener('click',nextTarget);
 window.addEventListener('resize',resize);
 if('ResizeObserver' in window)new ResizeObserver(resize).observe(arena);
 resize();setCamera();predict();updateControls();requestAnimationFrame(frame);
 // Check for new releases when the Home Screen app opens, resumes, and while it remains open.
 // Defer updates during a live flight so the player's maneuver is not interrupted.
-const APP_RELEASE='0.13.0';
+const APP_RELEASE='0.14.0';
 let checkingRelease=false, pendingRelease=null, applyingRelease=false;
 function applyPendingRelease(){
  if(!pendingRelease||phase==='flying'||applyingRelease)return;
@@ -1117,11 +1139,11 @@ if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
 }
 // Expose a tiny diagnostic API for automated regression tests, not gameplay.
 window.__flightLab={getState:()=>({phase,target,angle,speed,simT,shots,wins:[...wins],prediction,
- panelCollapsed,waitTime,launchEpoch,zoom:currentMap().zoom,panX:currentMap().panX,panY:currentMap().panY,viewMode:orbitCameraActive()?'orbit':'system',fuel,paused,rocket,localEncounter,warpTarget,warpStop,apsis:paused&&localEncounter?apsisForecast():null,burnPower,burnAngle,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
+ panelCollapsed,stations:JSON.parse(JSON.stringify(stations)),stationStats:{aurora:stationSummary('aurora'),cinder:stationSummary('cinder')},waitTime,launchEpoch,zoom:currentMap().zoom,panX:currentMap().panX,panY:currentMap().panY,viewMode:orbitCameraActive()?'orbit':'system',fuel,paused,rocket,localEncounter,warpTarget,warpStop,apsis:paused&&localEncounter?apsisForecast():null,burnPower,burnAngle,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
  predicted:burnPreview?{coast:burnPreview.coast?.rating,after:burnPreview.after?.rating,points:burnPreview.after?.points.length,ending:burnPreview.after?.ending}:null,grades}),
  setAim:(a,v)=>{if(phase==='aiming')changeAim(a,v)},launchHeading,launchAngleFromHeading,setWaitTime,chooseTarget,resetFlight,
  setBurn:(a,power)=>{setBurnAngle(a);setBurnPower(power)},orbitBurnBasis,orbitBurnDirection,orbitBurnAngleFromHeading,setPanelCollapsed,zoomMap,panMap,
- applyBurn,waitToApsis,stopWarp,advanceTest:(n=1)=>{for(let i=0;i<n&&phase==='flying'&&!paused;i++)tickPhysics(.055);updateControls();}};
+ applyBurn,waitToApsis,stopWarp,stationSummary,openStationDashboard,closeStationDashboard,advanceTest:(n=1)=>{for(let i=0;i<n&&phase==='flying'&&!paused;i++)tickPhysics(.055);updateControls();}};
 })();
 </script>
 </body>
