@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Slingshot">
   <meta name="description" content="A tiny orbital strategy game. Aim, launch, and intercept moving worlds.">
-  <meta property="og:title" content="Slingshot Empires — Prototype 0.12">
+  <meta property="og:title" content="Slingshot Empires — Prototype 0.13">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -192,13 +192,14 @@
       .burn-planner{padding:5px}
     }
     .launch-reference{font-size:9px;color:#94c1e2;line-height:1.25;margin:-1px 0 5px;letter-spacing:.015em}
+    .launch-reference #speedZero{border:0;background:transparent;font-size:10px;padding:1px 3px;text-decoration:underline;touch-action:manipulation}
     @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
   </style>
 </head>
 <body>
 <div class="app">
   <header class="top">
-    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.12</span></div></div>
+    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.13</span></div></div>
     <div class="stats"><div class="stat">Shots <strong id="shotCount">0</strong></div><div class="stat">Wins <strong id="winCount">0</strong>/3</div></div>
   </header>
   <main class="arena" id="arena" aria-label="Interactive solar system. Drag outward from the blue home planet to aim a rocket.">
@@ -216,9 +217,9 @@
     <div class="control-body" id="controlBody">
     <div id="planningPanel"><div class="controls-grid">
       <div class="slider-col"><div class="slider-head"><label for="angleRange">From prograde</label><output id="angleValue" for="angleRange">0.0°</output></div><input id="angleRange" type="range" min="-180" max="180" step="0.1" value="0" aria-label="Launch angle relative to orbital prograde; zero prograde, plus ninety radially outward, minus ninety inward, and one hundred eighty retrograde"><div class="launch-angle-steps"><button class="step" id="angleMinus" aria-label="Decrease launch angle by one degree">−1°</button><button class="step" id="angleMinusFine" aria-label="Decrease launch angle by 0.1 degree">−0.1°</button><button class="step" id="anglePlusFine" aria-label="Increase launch angle by 0.1 degree">+0.1°</button><button class="step" id="anglePlus" aria-label="Increase launch angle by one degree">+1°</button></div></div>
-      <div class="slider-col"><div class="slider-head"><label for="speedRange">Launch Δv</label><output id="speedValue" for="speedRange">32.0</output></div><input id="speedRange" type="range" min="0" max="65" step="0.1" value="32"><div class="step-row"><button class="step" id="speedMinus" aria-label="Decrease launch delta v by 0.1">−0.1</button><button class="step" id="speedPlus" aria-label="Increase launch delta v by 0.1">+0.1</button></div></div>
+      <div class="slider-col"><div class="slider-head"><label for="speedRange">Launch Δv</label><output id="speedValue" for="speedRange">32.00</output></div><input id="speedRange" type="range" min="0" max="65" step="0.01" value="32" aria-label="Launch delta v from zero to sixty five in 0.01 increments"><div class="tiny-steps" aria-label="Launch delta v fine controls"><button id="speedMinusLarge" aria-label="Decrease launch delta v by 0.10">−.10</button><button id="speedMinusFine" aria-label="Decrease launch delta v by 0.01">−.01</button><button id="speedPlusFine" aria-label="Increase launch delta v by 0.01">+.01</button><button id="speedPlusLarge" aria-label="Increase launch delta v by 0.10">+.10</button></div></div>
     </div>
-    <div class="launch-reference">0° PROGRADE · +90° OUT · ±180° RETROGRADE · −90° IN</div>
+    <div class="launch-reference">0° PROGRADE · +90° OUT · ±180° RETROGRADE · −90° IN · <button type="button" id="speedZero" class="burn-zero" aria-label="Reset launch delta v to zero">Reset Δv to 0</button></div>
     <div class="wait-panel" aria-label="Launch time planner">
       <div class="wait-head"><label for="waitRange">WAIT FOR TRANSFER WINDOW</label><output id="waitValue" for="waitRange">T + 0.0 s</output></div>
       <input id="waitRange" type="range" min="0" max="120" step="0.5" value="0" aria-label="Simulated launch time offset">
@@ -533,7 +534,7 @@ function predict(){
 }
 function updateControls(){
  $('angleValue').textContent=`${angle.toFixed(1)}°`;
- $('speedValue').textContent=speed.toFixed(1);
+ $('speedValue').textContent=speed.toFixed(2);
  $('angleRange').value=angle;$('speedRange').value=speed;
  $('waitRange').value=waitTime;
  $('waitValue').textContent=`T + ${waitTime.toFixed(1)} s`;
@@ -546,7 +547,7 @@ function updateControls(){
  $('controlSub').textContent=phase==='aiming'?'Advance time to find better planet alignment':phase==='flying'?(localEncounter?'Pilot the burn; safe orbit requires a full revolution':'Approach the target capture zone'):'Adjust launch parameters to retry';
  $('statusPill').textContent=phase==='aiming'?'READY':phase==='flying'?(warpTarget?'WARPING':paused?'PAUSED':'IN FLIGHT'):(phase==='won'?'SUCCESS':'LOST');
  $('statusPill').className='status-pill '+(phase==='flying'?'moving':phase==='won'?'won':phase==='lost'?'lost':'');
- const disable=phase==='flying';for(const id of ['angleRange','speedRange','angleMinus','anglePlus','angleMinusFine','anglePlusFine','speedMinus','speedPlus'])$(id).disabled=disable;
+ const disable=phase==='flying';for(const id of ['angleRange','speedRange','angleMinus','anglePlus','angleMinusFine','anglePlusFine','speedMinusLarge','speedMinusFine','speedPlusFine','speedPlusLarge','speedZero'])$(id).disabled=disable;
  $('planningPanel').hidden=disable;
  $('flightPanel').hidden=!disable;
  $('burnPlanner').hidden=!(phase==='flying'&&localEncounter&&target!=='star');
@@ -609,7 +610,7 @@ function updateControls(){
 }
 function chooseTarget(id){if(!MISSION[id])return;target=id;resetFlight();}
 function resetFlight(){setPanelCollapsed(false);phase='aiming';warpTarget=null;warpStop=null;apsisCacheRocket=null;apsisCache=null;rocket=null;simT=waitTime;launchEpoch=waitTime;paused=false;accum=0;result=null;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;$('resultShade').classList.remove('show');predict();updateControls();applyPendingRelease();}
-function changeAim(nextAngle,nextSpeed){angle=CLAMP(Math.round(nextAngle*10)/10,-180,180);speed=CLAMP(Math.round(nextSpeed*10)/10,0,65);predict();updateControls();}
+function changeAim(nextAngle,nextSpeed){angle=CLAMP(Math.round(nextAngle*10)/10,-180,180);speed=CLAMP(Math.round(nextSpeed*100)/100,0,65);predict();updateControls();}
 function setWaitTime(t){if(phase!=='aiming')return;waitTime=CLAMP(Math.round(t*2)/2,0,120);launchEpoch=waitTime;simT=waitTime;predict();updateControls();}
 function setBurnPower(nextPower){burnPower=Math.round(CLAMP(nextPower,0,Math.min(20,fuel))*100)/100;updateControls();}
 function setBurnAngle(nextAngle){burnAngle=CLAMP(Math.round(nextAngle*10)/10,-180,180);updateControls();}
@@ -946,7 +947,8 @@ $('angleRange').addEventListener('input',e=>changeAim(+e.target.value,speed));
 $('speedRange').addEventListener('input',e=>changeAim(angle,+e.target.value));
 $('angleMinus').addEventListener('click',()=>changeAim(angle-1,speed));$('anglePlus').addEventListener('click',()=>changeAim(angle+1,speed));
 $('angleMinusFine').addEventListener('click',()=>changeAim(angle-.1,speed));$('anglePlusFine').addEventListener('click',()=>changeAim(angle+.1,speed));
-$('speedMinus').addEventListener('click',()=>changeAim(angle,speed-.1));$('speedPlus').addEventListener('click',()=>changeAim(angle,speed+.1));
+for(const [id,dv] of [['speedMinusLarge',-.10],['speedMinusFine',-.01],['speedPlusFine',.01],['speedPlusLarge',.10]])$(id).addEventListener('click',()=>changeAim(angle,speed+dv));
+$('speedZero').addEventListener('click',()=>changeAim(angle,0));
 $('launchButton').addEventListener('click',launch);$('retryButton').addEventListener('click',resetFlight);
 $('orbitButton').addEventListener('click',applyBurn);
 $('burnRange').addEventListener('input',e=>setBurnPower(+e.target.value));
@@ -966,7 +968,7 @@ if('ResizeObserver' in window)new ResizeObserver(resize).observe(arena);
 resize();setCamera();predict();updateControls();requestAnimationFrame(frame);
 // Check for new releases when the Home Screen app opens, resumes, and while it remains open.
 // Defer updates during a live flight so the player's maneuver is not interrupted.
-const APP_RELEASE='0.12.0';
+const APP_RELEASE='0.13.0';
 let checkingRelease=false, pendingRelease=null, applyingRelease=false;
 function applyPendingRelease(){
  if(!pendingRelease||phase==='flying'||applyingRelease)return;
