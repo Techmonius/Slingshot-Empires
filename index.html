@@ -210,7 +210,7 @@
     <div id="pathLegend" class="path-legend" hidden><span class="path-key"><i class="keyline"></i>Coast</span><span class="path-key"><i class="keyline after"></i>After burn</span><span>Pe / Ap = orbit extremes</span></div>
     <div class="arena-bottom"><div class="tip" id="touchTip">Drag from HOME to aim · Tap a planet to target it</div><div class="time-chip" id="clock">T + 0.0s</div></div>
   </main>
-  <section class="controls" aria-label="Launch controls">
+  <section class="controls" id="controlsDock" aria-label="Launch controls">
     <div class="mode-row"><div><div class="mode-title" id="controlTitle">Launch parameters</div><div class="mode-sub" id="controlSub">Relative to moving HOME planet</div></div><span id="statusPill" class="status-pill">READY</span><button id="toggleControls" class="panel-toggle" type="button" aria-controls="controlBody" aria-expanded="true" aria-label="Collapse control panel to enlarge map">MAP ↑</button></div>
     <div class="control-body" id="controlBody">
     <div id="planningPanel"><div class="controls-grid">
@@ -377,10 +377,10 @@ function waitToApsis(kind){
  const prediction=apsisForecast()[kind];
  if(!prediction||!Number.isFinite(prediction.eta))return;
  warpTarget=kind;warpStop=rocket.t+prediction.eta;
- paused=false;accum=0;updateControls();
+ paused=false;accum=0;setPanelCollapsed(true);updateControls();
 }
 function stopWarp(){
- warpTarget=null;warpStop=null;paused=true;accum=0;updateControls();
+ warpTarget=null;warpStop=null;paused=true;accum=0;setPanelCollapsed(false);updateControls();
 }
 // Orbit quality is a GAMEPLAY HEURISTIC, not a claim about real extraction physics.
 // A safe, low-eccentricity, moderately low orbit scores best. Mining modifiers come later.
@@ -439,6 +439,18 @@ function readSaved(){
  }catch{return {shots:0,wins:[],grades:{}}}
 }
 const saved=readSaved();
+let panelCollapsed=false;
+function setPanelCollapsed(collapsed){
+ if(panelCollapsed===collapsed)return;
+ panelCollapsed=collapsed;
+ $('controlsDock').classList.toggle('collapsed',panelCollapsed);
+ $('toggleControls').textContent=panelCollapsed?'CONTROLS ↓':'MAP ↑';
+ $('toggleControls').setAttribute('aria-expanded',String(!panelCollapsed));
+ $('toggleControls').setAttribute('aria-label',panelCollapsed?'Expand control panel':'Collapse controls to enlarge map');
+ if(!panelCollapsed)$('controlBody').scrollTop=0;
+ // Force Canvas resolution and hit-test camera to follow the resized play area.
+ requestAnimationFrame(resize);
+}
 let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,target='aurora',angle=28,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,burnDragging=false,rocket=null,simT=0,waitTime=0,launchEpoch=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=0,burnAngle=0,warpTarget=null,warpStop=null,apsisCacheRocket=null,apsisCache=null,burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
 function store(){try{localStorage.setItem(DATA_KEY,JSON.stringify({shots,wins:[...wins],grades}))}catch{}}
 function orbitPos(p,t){const omega=Math.sqrt(MU_STAR/(p.orbit**3));const q=p.phase+omega*t;return {x:p.orbit*Math.cos(q),y:p.orbit*Math.sin(q),vx:-p.orbit*omega*Math.sin(q),vy:p.orbit*omega*Math.cos(q)}}
@@ -563,7 +575,7 @@ function updateControls(){
  for(const id of ['aurora','cinder','star'])$('mission'+id[0].toUpperCase()+id.slice(1)).style.color=id===target?'#e5fbff':'#7fa3c2';
 }
 function chooseTarget(id){if(!MISSION[id])return;target=id;resetFlight();}
-function resetFlight(){phase='aiming';warpTarget=null;warpStop=null;apsisCacheRocket=null;apsisCache=null;rocket=null;simT=waitTime;launchEpoch=waitTime;paused=false;accum=0;result=null;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;$('resultShade').classList.remove('show');predict();updateControls();applyPendingRelease();}
+function resetFlight(){setPanelCollapsed(false);phase='aiming';warpTarget=null;warpStop=null;apsisCacheRocket=null;apsisCache=null;rocket=null;simT=waitTime;launchEpoch=waitTime;paused=false;accum=0;result=null;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;$('resultShade').classList.remove('show');predict();updateControls();applyPendingRelease();}
 function changeAim(nextAngle,nextSpeed){angle=CLAMP(Math.round(nextAngle*10)/10,-180,180);speed=CLAMP(Math.round(nextSpeed*10)/10,0,65);predict();updateControls();}
 function setWaitTime(t){if(phase!=='aiming')return;waitTime=CLAMP(Math.round(t*2)/2,0,120);launchEpoch=waitTime;simT=waitTime;predict();updateControls();}
 function setBurnPower(nextPower){burnPower=Math.round(CLAMP(nextPower,0,Math.min(20,fuel))*100)/100;updateControls();}
@@ -571,7 +583,7 @@ function setBurnAngle(nextAngle){burnAngle=CLAMP(Math.round(nextAngle*10)/10,-18
 function launch(){
  if(phase==='flying')return;
  if(phase!=='aiming'){resetFlight();}
- shots++;store();warpTarget=null;warpStop=null;apsisCacheRocket=null;apsisCache=null;launchEpoch=waitTime;rocket=startRocket();simT=launchEpoch;phase='flying';paused=false;accum=0;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;updateControls();
+ shots++;store();warpTarget=null;warpStop=null;apsisCacheRocket=null;apsisCache=null;launchEpoch=waitTime;rocket=startRocket();simT=launchEpoch;phase='flying';paused=false;accum=0;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;setPanelCollapsed(true);updateControls();
 }
 const trail=[];
 function endFlight(outcome){
@@ -620,7 +632,7 @@ function tickPhysics(dt){
   const q=encounterFrame(rocket,target);
   if(q&&q.dist<CAPTURE_RADIUS[target]&&q.dist>q.p.r+3){
    localEncounter=true;encounterNotified=true;paused=true;accum=0;
-   mapViews.orbit={zoom:1,panX:0,panY:0};setCamera();
+   mapViews.orbit={zoom:1,panX:0,panY:0};setCamera();setPanelCollapsed(false);
    stableSweep=0;lastPolar=Math.atan2(q.dy,q.dx);
    // Suggest a retrograde initial heading, but don't apply a burn automatically.
    const retro=burnVector(rocket,target,'brake');
@@ -883,6 +895,7 @@ canvas.addEventListener('wheel',e=>{
  zoomMap(Math.exp(-e.deltaY*.002),pt.x,pt.y);
  e.preventDefault();
 },{passive:false});
+$('toggleControls').addEventListener('click',()=>setPanelCollapsed(!panelCollapsed));
 $('waitRange').addEventListener('input',e=>setWaitTime(+e.target.value));
 $('waitZero').addEventListener('click',()=>setWaitTime(0));
 for(const [id,dt] of [['waitMinusTen',-10],['waitMinusOne',-1],['waitPlusOne',1],['waitPlusTen',10]])$(id).addEventListener('click',()=>setWaitTime(waitTime+dt));
@@ -900,9 +913,9 @@ for(const [id,dv] of [['burnMinusLarge',-.1],['burnMinusFine',-.01],['burnPlusFi
 $('burnZero').addEventListener('click',()=>setBurnPower(0));
 $('waitPeri').addEventListener('click',()=>waitToApsis('peri'));
 $('waitApo').addEventListener('click',()=>waitToApsis('apo'));
-$('coastButton').addEventListener('click',()=>{if(phase==='flying'){if(warpTarget)stopWarp();else{paused=!paused;updateControls()}}});
+$('coastButton').addEventListener('click',()=>{if(phase==='flying'){if(warpTarget)stopWarp();else{paused=!paused;setPanelCollapsed(!paused);updateControls()}}});
 $('togglePath').addEventListener('click',()=>{showPath=!showPath;$('togglePath').classList.toggle('selected',showPath);$('togglePath').setAttribute('aria-pressed',String(showPath));updateControls()});
-$('pauseButton').addEventListener('click',()=>{if(phase==='flying'){if(warpTarget)stopWarp();else{paused=!paused;updateControls()}}});
+$('pauseButton').addEventListener('click',()=>{if(phase==='flying'){if(warpTarget)stopWarp();else{paused=!paused;setPanelCollapsed(!paused);updateControls()}}});
 for(const id of ['aurora','cinder','star'])$('mission'+id[0].toUpperCase()+id.slice(1)).addEventListener('click',()=>chooseTarget(id));
 $('dialogRetry').addEventListener('click',resetFlight);$('dialogNext').addEventListener('click',nextTarget);
 window.addEventListener('resize',resize);
@@ -910,7 +923,7 @@ if('ResizeObserver' in window)new ResizeObserver(resize).observe(arena);
 resize();setCamera();predict();updateControls();requestAnimationFrame(frame);
 // Check for new releases when the Home Screen app opens, resumes, and while it remains open.
 // Defer updates during a live flight so the player's maneuver is not interrupted.
-const APP_RELEASE='0.9.0';
+const APP_RELEASE='1.0.0';
 let checkingRelease=false, pendingRelease=null, applyingRelease=false;
 function applyPendingRelease(){
  if(!pendingRelease||phase==='flying'||applyingRelease)return;
@@ -953,10 +966,10 @@ if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
 }
 // Expose a tiny diagnostic API for automated regression tests, not gameplay.
 window.__flightLab={getState:()=>({phase,target,angle,speed,simT,shots,wins:[...wins],prediction,
- waitTime,launchEpoch,zoom:currentMap().zoom,panX:currentMap().panX,panY:currentMap().panY,viewMode:orbitCameraActive()?'orbit':'system',fuel,paused,rocket,localEncounter,warpTarget,warpStop,apsis:paused&&localEncounter?apsisForecast():null,burnPower,burnAngle,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
+ panelCollapsed,waitTime,launchEpoch,zoom:currentMap().zoom,panX:currentMap().panX,panY:currentMap().panY,viewMode:orbitCameraActive()?'orbit':'system',fuel,paused,rocket,localEncounter,warpTarget,warpStop,apsis:paused&&localEncounter?apsisForecast():null,burnPower,burnAngle,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
  predicted:burnPreview?{coast:burnPreview.coast?.rating,after:burnPreview.after?.rating,points:burnPreview.after?.points.length,ending:burnPreview.after?.ending}:null,grades}),
  setAim:(a,v)=>{if(phase==='aiming')changeAim(a,v)},setWaitTime,chooseTarget,resetFlight,
- setBurn:(a,power)=>{setBurnAngle(a);setBurnPower(power)},zoomMap,panMap,
+ setBurn:(a,power)=>{setBurnAngle(a);setBurnPower(power)},setPanelCollapsed,zoomMap,panMap,
  applyBurn,waitToApsis,stopWarp,advanceTest:(n=1)=>{for(let i=0;i<n&&phase==='flying'&&!paused;i++)tickPhysics(.055);updateControls();}};
 })();
 </script>
