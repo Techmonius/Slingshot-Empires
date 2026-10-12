@@ -1,6 +1,20 @@
-# Slingshot Empires — Flight Lab v0.10
+# Slingshot Empires — Flight Lab v0.11
 
 Live game: https://techmonius.github.io/Slingshot-Empires/
+
+## v0.11 — launch angles referenced to orbital prograde
+
+The launch angle is now expressed in **Home's moving orbital frame**, measured from the planet's instantaneous orbital velocity instead of the global screen axes:
+
+- **0° = prograde** (adds launch delta-v in the direction Home travels around the star).
+- **+90° = radial outward** (away from the star).
+- **−90° = radial inward** (toward the star).
+- **±180° = retrograde** (opposes Home's orbital velocity).
+- Arbitrary angles from -180° to +180° retain **0.1° precision**.
+
+The launch arrow includes a small green **PRO** reference indicator; the cyan launch arrow and trajectory simulation use the same rotating basis. Dragging from Home converts touch direction back into the displayed prograde-relative angle. Planning a departure later changes the planet's location, its orbital velocity and the corresponding world-space launch direction while the *relative angle remains fixed*. A zero-degree launch continues to align with orbital prograde at any chosen departure time. A new launch defaults to 0°.
+
+**Orbital burn controls are intentionally unchanged**: their separate angle setting remains in global screen/world coordinates as in v0.6. Saved shots, wins and orbit grades are preserved. Because launch-angle semantics have changed, older mission walkthroughs using absolute screen-axis launch angles must be converted to prograde-relative angles; for example, the former Cinder launch of -20° world/screen direction at T+0 corresponds to **-95° relative to prograde**. Tested with 0°, ±90°, ±180°, arbitrary angles across multiple departure times, touch aiming, and the complete Cinder S/90 mission.
 
 ## v0.10 — compact controls and map-first layout
 
