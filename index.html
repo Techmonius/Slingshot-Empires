@@ -874,6 +874,26 @@ function planetDraw(p,t){
   ctx.beginPath();ctx.moveTo(pos.x-radius*.8,pos.y-radius*.25);ctx.bezierCurveTo(pos.x-radius*.2,pos.y-radius*.52,pos.x+radius*.1,pos.y+radius*.1,pos.x+radius*.9,pos.y-radius*.12);ctx.stroke();ctx.restore();
  }
  if(p.id==='home'||p.id==='aurora'||p.id==='cinder')textLabel(p.name.toUpperCase(),pos.x,pos.y+radius+15,p.id==='home'?'#8bd9ff':'#bec9e1',10,800);
+ if(STATION_PLANETS.includes(p.id)){
+  const station=stationSummary(p.id);
+  if(station.modules>0){
+   // Station is a persistent map marker on a representative planet-centered orbit.
+   // Future versions will track individual station module orbits and docking.
+   const orbitalRadius=p.r+16,ringRadius=orbitalRadius*camera.scale;
+   ctx.beginPath();ctx.arc(pos.x,pos.y,ringRadius,-PI/2,-PI/2+TAU*station.modules/STATION_REQUIRED);
+   ctx.strokeStyle=station.operational?'rgba(255,214,139,.85)':'rgba(240,194,114,.68)';
+   ctx.lineWidth=station.operational?1.7:2.1;ctx.setLineDash(station.operational?[3,4]:[3,5]);ctx.stroke();ctx.setLineDash([]);
+   if(station.operational){
+    const orbitalAngle=(p.id==='aurora'?0.85:-1.25)+Math.sqrt(p.mu/(orbitalRadius**3))*t;
+    const sx=pos.x+Math.cos(orbitalAngle)*ringRadius,sy=pos.y+Math.sin(orbitalAngle)*ringRadius;
+    ctx.save();ctx.translate(sx,sy);ctx.rotate(orbitalAngle);
+    ctx.fillStyle='#ffdfab';ctx.fillRect(-3.2,-3.2,6.4,6.4);
+    ctx.fillStyle='#58d9ff';ctx.fillRect(-11.5,-2.3,7,4.6);ctx.fillRect(4.5,-2.3,7,4.6);
+    ctx.strokeStyle='#f7ce88';ctx.strokeRect(-3.4,-3.4,6.8,6.8);
+    ctx.restore();
+   }
+  }
+ }
 }
 function render(){
  const W=view.width,H=view.height;if(!W||!H)return;
