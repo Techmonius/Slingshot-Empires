@@ -1246,7 +1246,7 @@ window.__flightLab={getState:()=>({phase,target,angle,speed,simT,shots,wins:[...
  predicted:burnPreview?{coast:burnPreview.coast?.rating,after:burnPreview.after?.rating,points:burnPreview.after?.points.length,ending:burnPreview.after?.ending}:null,grades}),
  setAim:(a,v)=>{if(phase==='aiming')changeAim(a,v)},launchHeading,launchAngleFromHeading,setWaitTime,chooseTarget,resetFlight,
  setBurn:(a,power)=>{setBurnAngle(a);setBurnPower(power)},orbitBurnBasis,orbitBurnDirection,orbitBurnAngleFromHeading,setPanelCollapsed,zoomMap,panMap,
- applyBurn,waitToApsis,stopWarp,stationSummary,openStationDashboard,closeStationDashboard,advanceTest:(n=1)=>{for(let i=0;i<n&&phase==='flying'&&!paused;i++)tickPhysics(.055);updateControls();}};
+ applyBurn,waitToApsis,stopWarp,stationSummary,openStationDashboard,closeStationDashboard,circularOrbitRating,orbitHeatBands,gradePaint,advanceTest:(n=1)=>{for(let i=0;i<n&&phase==='flying'&&!paused;i++)tickPhysics(.055);updateControls();}};
 })();
 </script>
 </body>
