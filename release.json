@@ -1,5 +1,5 @@
 {
-  "version": "0.14.0",
-  "displayVersion": "V0.14",
-  "notes": "Persistent orbital stations: three manually completed safe orbits construct each station; top-three grades determine saved station logistics quality; additional better deliveries upgrade it. New station network dashboard."
+  "version": "0.14.1",
+  "displayVersion": "V0.14.1",
+  "notes": "Orbit heat bands and color-coded path previews, with compact Coast and Burn labels."
 }
