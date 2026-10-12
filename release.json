@@ -1,5 +1,5 @@
 {
-  "version": "0.9.0",
-  "displayVersion": "V0.9",
-  "notes": "Wait to periapsis and apoapsis during orbital flight; automatic fast-coast, precise pause and manual burns."
+  "version": "0.10.0",
+  "displayVersion": "V0.10",
+  "notes": "Compact control dock, auto-hide during coasting, and a larger map with full controls available on demand."
 }
