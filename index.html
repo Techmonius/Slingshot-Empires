@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Slingshot">
   <meta name="description" content="A tiny orbital strategy game. Aim, launch, and intercept moving worlds.">
-  <meta property="og:title" content="Slingshot Empires — Prototype 0.13">
+  <meta property="og:title" content="Slingshot Empires — Prototype 0.14">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -193,20 +193,40 @@
     }
     .launch-reference{font-size:9px;color:#94c1e2;line-height:1.25;margin:-1px 0 5px;letter-spacing:.015em}
     .launch-reference #speedZero{border:0;background:transparent;font-size:10px;padding:1px 3px;text-decoration:underline;touch-action:manipulation}
+    /* Persistent station construction uses an overlay, not more fixed-height map controls. */
+    .station-chip{font-size:10px;font-weight:750;color:#ffdaa0;margin-top:4px;line-height:1.2}
+    .station-chip.operational{color:#84f1c8}
+    .station-dialog{width:min(470px,100%);max-height:min(81dvh,720px);overflow-y:auto;text-align:left;padding:16px}
+    .station-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}
+    .station-dialog-head h2{font-size:20px;margin:0}
+    .station-dialog-close{background:#1d3854;border:1px solid #426582;border-radius:8px;color:#dcf1ff;font-weight:800;min-height:34px;min-width:39px}
+    .station-dialog-lead{font-size:11px;color:#b6d0e6;line-height:1.45;margin:4px 0 10px}
+    .station-card-grid{display:grid;grid-template-columns:1fr;gap:9px}
+    .station-card{padding:11px;border-radius:12px;border:1px solid #39566d;background:linear-gradient(135deg,#142941,#0b1c2f)}
+    .station-card-title{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-weight:800;font-size:14px}
+    .station-card-title span{font-size:10px;color:#b4d0e8}
+    .station-card-progress{height:6px;background:#26394d;border-radius:9px;overflow:hidden;margin:8px 0 5px}
+    .station-card-progress >div{height:100%;background:linear-gradient(90deg,#46a9cf,#f1d28d);width:0;transition:width .2s}
+    .station-card-description{font-size:11px;color:#c2d9e9;line-height:1.4;min-height:26px}
+    .station-card-footer{display:flex;justify-content:space-between;align-items:center;gap:7px;margin-top:8px}
+    .station-card-score{font-size:12px;color:#a7ebd3;font-weight:800}
+    .station-card-footer button{background:#234762;border:1px solid #4d819d;border-radius:7px;min-height:32px;padding:5px 10px;color:#e7f7ff;font-size:11px;font-weight:850}
+    .station-dialog-foot{font-size:10px;color:#9fbad1;line-height:1.5;margin:11px 0 0}
+    @media(min-width:500px){.station-card-grid{grid-template-columns:1fr 1fr}}
     @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
   </style>
 </head>
 <body>
 <div class="app">
   <header class="top">
-    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.13</span></div></div>
+    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.14</span></div></div>
     <div class="stats"><div class="stat">Shots <strong id="shotCount">0</strong></div><div class="stat">Wins <strong id="winCount">0</strong>/3</div></div>
   </header>
   <main class="arena" id="arena" aria-label="Interactive solar system. Drag outward from the blue home planet to aim a rocket.">
     <canvas id="space"></canvas>
     <div class="arena-top">
-      <div class="objective"><div class="eyebrow">CURRENT MISSION</div><strong id="objectiveLabel">Orbit Aurora</strong><div class="hint-mini" id="objectiveHint">Reach its capture zone and burn</div></div>
-      <div class="viewport-actions"><button id="togglePath" class="iconbtn selected" title="Toggle projected flight path" aria-label="Toggle projected flight path" aria-pressed="true">〰</button><button id="pauseButton" class="iconbtn" title="Pause or resume flight" aria-label="Pause or resume flight">Ⅱ</button></div>
+      <div class="objective"><div class="eyebrow">CURRENT MISSION</div><strong id="objectiveLabel">Orbit Aurora</strong><div class="hint-mini" id="objectiveHint">Reach its capture zone and burn</div><div class="station-chip" id="stationStatus">STATION · 0/3 ROCKETS</div></div>
+      <div class="viewport-actions"><button id="stationButton" class="iconbtn" title="Orbital station network" aria-label="Open orbital station network">🛰</button><button id="togglePath" class="iconbtn selected" title="Toggle projected flight path" aria-label="Toggle projected flight path" aria-pressed="true">〰</button><button id="pauseButton" class="iconbtn" title="Pause or resume flight" aria-label="Pause or resume flight">Ⅱ</button></div>
     </div>
     <div id="orbitViewTag" class="orbit-view-tag" hidden>PLANET-FRAME CAMERA</div>
     <div id="pathLegend" class="path-legend" hidden><span class="path-key"><i class="keyline"></i>Coast</span><span class="path-key"><i class="keyline after"></i>After burn</span><span>Pe / Ap = orbit extremes</span></div>
@@ -274,6 +294,27 @@
     <div class="mission-link">Target: <button id="missionAurora">Aurora</button> · <button id="missionCinder">Cinder</button> · <button id="missionStar">Star</button></div>
     </div>
   </section>
+  <div class="shade" id="stationShade" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="stationDialogTitle">
+    <div class="dialog station-dialog">
+      <div class="station-dialog-head"><h2 id="stationDialogTitle">Orbital stations</h2><button id="stationClose" class="station-dialog-close" aria-label="Close station network">✕</button></div>
+      <p class="station-dialog-lead">Deliver 3 rockets into safe orbit at each planet to build its station. The three highest orbit grades determine station quality; future better deliveries can improve it.</p>
+      <div class="station-card-grid">
+        <div class="station-card">
+          <div class="station-card-title">AURORA <span id="stationAuroraStage">BLUEPRINT</span></div>
+          <div class="station-card-progress"><div id="stationAuroraBar"></div></div>
+          <div id="stationAuroraDescription" class="station-card-description">0 of 3 rocket deliveries</div>
+          <div class="station-card-footer"><span id="stationAuroraScore" class="station-card-score">NO STATION</span><button id="stationToAurora">PLAN FLIGHT</button></div>
+        </div>
+        <div class="station-card">
+          <div class="station-card-title">CINDER <span id="stationCinderStage">BLUEPRINT</span></div>
+          <div class="station-card-progress"><div id="stationCinderBar"></div></div>
+          <div id="stationCinderDescription" class="station-card-description">0 of 3 rocket deliveries</div>
+          <div class="station-card-footer"><span id="stationCinderScore" class="station-card-score">NO STATION</span><button id="stationToCinder">PLAN FLIGHT</button></div>
+        </div>
+      </div>
+      <p class="station-dialog-foot">Stations are persistent construction assets. The quality percentage represents planned orbital logistics efficiency; actual mining, fuel shipments, factories and routes will be added in subsequent versions. Only manually completed safe orbits count.</p>
+    </div>
+  </div>
   <div class="shade" id="resultShade" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
     <div class="dialog"><div id="dialogSymbol" class="dialog-symbol">✦</div><div class="eyebrow" id="dialogEyebrow">FLIGHT COMPLETE</div><h2 id="dialogTitle">Mission accomplished</h2><p id="dialogDetail"></p><div class="dialog-btns"><button class="secondary" id="dialogRetry">TRY AGAIN</button><button class="primary" id="dialogNext">NEXT TARGET</button></div><small>Burns are controlled by you. Inside the encounter zone the ship follows a planet-relative two-body model; getting a safe orbit takes piloting.</small></div>
   </div>
