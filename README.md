@@ -1,6 +1,21 @@
-# Slingshot Empires — Flight Lab v0.11
+# Slingshot Empires — Flight Lab v0.12
 
 Live game: https://techmonius.github.io/Slingshot-Empires/
+
+## v0.12 — orbital burns use the same angle convention as launch
+
+Both launch and the close-up orbital maneuver screen now show **From prograde** and share the same orbital-frame directions:
+- **0°: prograde** — add delta-v along the orbit's tangential direction of travel.
+- **±180°: retrograde** — oppose that tangential motion.
+- **+90°: radial outward** — away from the planet.
+- **−90°: radial inward** — toward the planet.
+- Full -180° to +180° freedom at **0.1° precision**, and delta-v still supports **0.00 minimum** and **0.01** increments.
+
+During close-up flight the reference rotates continuously with the rocket around the planet, including after waiting to periapsis or apoapsis; it respects both clockwise and counterclockwise trajectories. Since a highly eccentric orbit can include substantial inward/outward velocity, **orbital prograde here is specifically the transverse (tangential) direction**, making +90° always radial outward. This matches Home's circular-orbit launch reference. The basis is planet-relative rather than fixed to screen directions.
+
+An additional green **PRO** reference indicator shows the current tangential heading beside the rocket. Burn arrows, manual drag-to-aim, and both coast and after-burn trajectory predictions agree on the relative angle. Initial capture suggests **180° retrograde** but does not consume fuel or initiate a maneuver. No autopilot has been added. The orbital physics and grade rules are unchanged; saved progress is preserved.
+
+Previous orbital burn directions that were specified as global screen-axis degrees now need conversion into this relative frame. For example, Cinder capture launched at **-95° from Home prograde** at T+0 still yields an S/90 orbit using **retrograde 180° with 5 Δv**, followed by **radial outward +90° with 4 Δv**; fuel left: 21. Verified after apoapsis and periapsis waits, including drag aiming, orbit completion and grade.
 
 ## v0.11 — launch angles referenced to orbital prograde
 
@@ -14,7 +29,7 @@ The launch angle is now expressed in **Home's moving orbital frame**, measured f
 
 The launch arrow includes a small green **PRO** reference indicator; the cyan launch arrow and trajectory simulation use the same rotating basis. Dragging from Home converts touch direction back into the displayed prograde-relative angle. Planning a departure later changes the planet's location, its orbital velocity and the corresponding world-space launch direction while the *relative angle remains fixed*. A zero-degree launch continues to align with orbital prograde at any chosen departure time. A new launch defaults to 0°.
 
-**Orbital burn controls are intentionally unchanged**: their separate angle setting remains in global screen/world coordinates as in v0.6. Saved shots, wins and orbit grades are preserved. Because launch-angle semantics have changed, older mission walkthroughs using absolute screen-axis launch angles must be converted to prograde-relative angles; for example, the former Cinder launch of -20° world/screen direction at T+0 corresponds to **-95° relative to prograde**. Tested with 0°, ±90°, ±180°, arbitrary angles across multiple departure times, touch aiming, and the complete Cinder S/90 mission.
+**Since v0.12, orbital burns use the same prograde-relative coordinate system.** Saved shots, wins and orbit grades are preserved. Because launch-angle semantics have changed, older mission walkthroughs using absolute screen-axis launch angles must be converted to prograde-relative angles; for example, the former Cinder launch of -20° world/screen direction at T+0 corresponds to **-95° relative to prograde**. Tested with 0°, ±90°, ±180°, arbitrary angles across multiple departure times, touch aiming, and the complete Cinder S/90 mission.
 
 ## v0.10 — compact controls and map-first layout
 
