@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Slingshot">
   <meta name="description" content="A tiny orbital strategy game. Aim, launch, and intercept moving worlds.">
-  <meta property="og:title" content="Slingshot Empires — Prototype 0.14">
+  <meta property="og:title" content="Slingshot Empires — Prototype 0.14.1">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -94,6 +94,15 @@
     .grade-copy{font-size:10px;color:#b5c9df;line-height:1.25}
     .path-legend{position:absolute;left:12px;bottom:47px;pointer-events:none;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 9px;background:rgba(8,22,37,.88);border:1px solid rgba(100,152,195,.22);border-radius:8px;font-size:10px;color:#d1e6f8}
     .path-key{display:inline-flex;align-items:center;gap:5px}.keyline{width:20px;border-top:2px dashed #9ca9bb;display:inline-block}.keyline.after{border-top:2px solid #4ee3ff}
+    .path-legend{flex-direction:column;align-items:flex-start;gap:3px;padding:5px 7px;max-width:calc(100% - 18px);font-size:9px}
+    .grade-ribbon{display:flex;align-items:center;gap:4px;flex-wrap:wrap;line-height:1}
+    .grade-ribbon-label{font-size:9px;color:#bfd7eb;margin-right:2px;letter-spacing:.025em}
+    .heat-swatch{display:inline-flex;min-width:18px;height:17px;align-items:center;justify-content:center;border-radius:4px;border:1px solid #ffffff33;color:#081621;font-size:9px;font-weight:900}
+    .heat-swatch.s{background:#6bf3c8}.heat-swatch.a{background:#68c9fa}.heat-swatch.b{background:#c4e77d}.heat-swatch.c{background:#ffd17a}.heat-swatch.d{background:#ff9d67}.heat-swatch.f{background:#f26d85}
+    .legend-explain{font-size:9px;color:#95bad5}
+    .path-keys{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:9px}
+    .path-key .keyline{width:19px}
+    .grade-line-key{min-width:11px;font-weight:900}
     .orbit-view-tag{position:absolute;right:13px;top:87px;padding:4px 7px;border:1px solid rgba(114,177,212,.3);background:#071626db;border-radius:6px;color:#a9d8f1;font-size:9px;font-weight:750;letter-spacing:.04em;pointer-events:none}
 
     #orbitTelemetry{font-size:10px;color:#bcdbef;margin:0 0 8px;line-height:1.4;min-height:14px;font-variant-numeric:tabular-nums}
@@ -219,7 +228,7 @@
 <body>
 <div class="app">
   <header class="top">
-    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.14</span></div></div>
+    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.14.1</span></div></div>
     <div class="stats"><div class="stat">Shots <strong id="shotCount">0</strong></div><div class="stat">Wins <strong id="winCount">0</strong>/3</div></div>
   </header>
   <main class="arena" id="arena" aria-label="Interactive solar system. Drag outward from the blue home planet to aim a rocket.">
@@ -229,7 +238,10 @@
       <div class="viewport-actions"><button id="stationButton" class="iconbtn" title="Orbital station network" aria-label="Open orbital station network">🛰</button><button id="togglePath" class="iconbtn selected" title="Toggle projected flight path" aria-label="Toggle projected flight path" aria-pressed="true">〰</button><button id="pauseButton" class="iconbtn" title="Pause or resume flight" aria-label="Pause or resume flight">Ⅱ</button></div>
     </div>
     <div id="orbitViewTag" class="orbit-view-tag" hidden>PLANET-FRAME CAMERA</div>
-    <div id="pathLegend" class="path-legend" hidden><span class="path-key"><i class="keyline"></i>Coast</span><span class="path-key"><i class="keyline after"></i>After burn</span><span>Pe / Ap = orbit extremes</span></div>
+    <div id="pathLegend" class="path-legend" hidden>
+      <div class="grade-ribbon"><span class="grade-ribbon-label">CIRCULAR ORBIT HEATMAP</span><span class="heat-swatch s">S</span><span class="heat-swatch a">A</span><span class="heat-swatch b">B</span><span class="heat-swatch c">C</span><span class="heat-swatch d">D</span><span class="heat-swatch f">F</span></div>
+      <div class="path-keys"><span class="path-key"><i class="keyline" id="coastLegendKey"></i><span id="coastLegendText">Coast</span></span><span class="path-key"><i class="keyline after" id="burnLegendKey"></i><span id="burnLegendText">After burn</span></span><span class="legend-explain">Pe / Ap = extremes</span></div>
+    </div>
     <div class="arena-bottom"><div class="tip" id="touchTip">Drag from HOME to aim · Tap a planet to target it</div><div class="time-chip" id="clock">T + 0.0s</div></div>
   </main>
   <section class="controls" id="controlsDock" aria-label="Launch controls">
@@ -463,6 +475,62 @@ function orbitRating(o,id){
  const score=Math.max(0,Math.min(100,Math.round((68*eccFactor+32*altitudeFactor)*(.65+.35*lowPass))));
  const grade=score>=90?'S':score>=75?'A':score>=60?'B':score>=45?'C':score>=30?'D':'F';
  return {status:'SAFE ORBIT',tone:'safe',grade,score,description:`Orbit quality ${score}/100 • extraction potential (future)`};
+}
+// Reference rings are scored as circular orbits using the same gameplay rules.
+// Real orbit grade also depends on eccentricity, Pe/Ap and the safe-altitude bound.
+const GRADE_PALETTE={
+ S:{solid:'#6bf3c8',heat:'rgba(88,245,196,.31)'},
+ A:{solid:'#68c9fa',heat:'rgba(77,196,253,.28)'},
+ B:{solid:'#c4e77d',heat:'rgba(181,225,108,.27)'},
+ C:{solid:'#ffd17a',heat:'rgba(255,200,99,.27)'},
+ D:{solid:'#ff9d67',heat:'rgba(247,141,83,.29)'},
+ F:{solid:'#f26d85',heat:'rgba(239,87,115,.29)'},
+ '—':{solid:'#aab7c8',heat:'rgba(123,147,168,.13)'}
+};
+const orbitHeatCache={};
+function circularOrbitRating(id,radius){
+ const p=PLANETS.find(p=>p.id===id);
+ if(!p||!Number.isFinite(radius)||radius<=0)return null;
+ const orbit={p,peri:radius,apo:radius,ecc:0,energy:-p.mu/(2*radius)};
+ return orbitRating(orbit,id);
+}
+function orbitHeatBands(id){
+ if(orbitHeatCache[id])return orbitHeatCache[id];
+ const p=PLANETS.find(p=>p.id===id),outer=ORBIT_LIMIT[id];
+ if(!p||!outer)return [];
+ const bands=[],step=.55;
+ for(let inner=p.r;inner<outer;inner+=step){
+  const edge=Math.min(inner+step,outer),mid=(inner+edge)/2;
+  const rating=circularOrbitRating(id,mid);
+  bands.push({inner,outer:edge,grade:rating?.grade||'—',score:rating?.score??null});
+ }
+ orbitHeatCache[id]=bands;
+ return bands;
+}
+function gradePaint(rating){
+ const key=rating?.status==='SAFE ORBIT'?rating.grade:rating?.status==='IMPACT'?'F':'—';
+ return GRADE_PALETTE[key]||GRADE_PALETTE['—'];
+}
+function drawOrbitGradeHeatmap(id,planetPos){
+ const scale=camera.scale;
+ if(scale<=0)return;
+ const center=worldToScreen(planetPos.x,planetPos.y);
+ const bands=orbitHeatBands(id);
+ ctx.save();
+ for(const band of bands){
+  const outer=band.outer*scale,inner=band.inner*scale;
+  if(outer-inner<.5)continue;
+  ctx.beginPath();ctx.arc(center.x,center.y,outer,0,TAU);
+  ctx.arc(center.x,center.y,inner,TAU,0,true);ctx.closePath();
+  ctx.fillStyle=(GRADE_PALETTE[band.grade]||GRADE_PALETTE['—']).heat;ctx.fill();
+ }
+ // The optimal circular altitude is a helpful visual aim point, not a guarantee
+ // of an S orbit: highly eccentric trajectories can still score poorly.
+ const p=PLANETS.find(p=>p.id===id),ideal=p.r+16;
+ lineCircle(center.x,center.y,ideal*scale,'rgba(194,255,232,.68)',1.3,[3,4]);
+ const label=worldToScreen(planetPos.x+ideal*.7,planetPos.y-ideal*.72);
+ textLabel('CIRCULAR S',label.x,label.y,'#bafce7',9,800);
+ ctx.restore();
 }
 function orbitExtrema(o){
  if(!o||o.energy>=0||!Number.isFinite(o.apo)||o.ecc<.035)return null;
@@ -1117,7 +1185,7 @@ if('ResizeObserver' in window)new ResizeObserver(resize).observe(arena);
 resize();setCamera();predict();updateControls();requestAnimationFrame(frame);
 // Check for new releases when the Home Screen app opens, resumes, and while it remains open.
 // Defer updates during a live flight so the player's maneuver is not interrupted.
-const APP_RELEASE='0.14.0';
+const APP_RELEASE='0.14.1';
 let checkingRelease=false, pendingRelease=null, applyingRelease=false;
 function applyPendingRelease(){
  if(!pendingRelease||phase==='flying'||applyingRelease)return;
