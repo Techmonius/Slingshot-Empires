@@ -1,6 +1,16 @@
-# Slingshot Empires — Flight Lab v0.14
+# Slingshot Empires — Flight Lab v0.14.1
 
 Live game: https://techmonius.github.io/Slingshot-Empires/
+
+## v0.14.1 — orbit grade heatmap and graded flight paths
+
+In the close-up planetary orbit view, a transparent, concentric **grade heatmap** surrounds the planet. Every thin annulus uses the real existing `orbitRating()` rules applied to a **hypothetical circular orbit** (`periapsis = apoapsis = radius; eccentricity = 0`) at that altitude. The circular optimal radius (planet radius + 16 simulation distance units) is marked as a dashed `CIRCULAR S` reference. Bands are sampled at about 0.55 simulation distance units; grade results are cached per planet to keep rendering efficient.
+
+Grade colors: **S mint, A sky-blue, B lime, C gold, D orange, F pink/red**. The unsafe/impact region is red. Grades that cannot occur for a circular orbit at a given body's physical radius and orbit limit will not create artificial bands. The legend explicitly labels the ring **CIRCULAR ORBIT HEATMAP**, because a real orbit's grade also accounts for eccentricity, periapsis safety, and apoapsis limits.
+
+When paused in orbit view, the ship's **coasting orbit is drawn dashed in its calculated grade color**; a **proposed burn orbit appears as a solid line in its calculated grade color**, with the legend showing the grade/score or an escape/unsafe status for each. Current flight trail during a local encounter likewise uses the current calculated grade color. Projected periapsis/apoapsis indicators, aiming controls, heatmap visibility during coasts, and manual burn mechanics remain. These visuals do not change the flight physics, orbit scores, saved grades, or station development.
+
+The enhanced legend sits in the existing orbit map overlay and adds no fixed-height control-panel rows. Tested scoring at safe and unsafe radii, generated heat bands for Cinder/Aurora, Canvas render calls, burn legend, and the Cinder S/90 completion after waiting to both apsides. A C-grade **ring band** is present where the circular scoring model produces C; not all attainable elliptical grades necessarily appear in the circular reference bands.
 
 ## v0.14 — persistent multi-rocket orbital stations
 
