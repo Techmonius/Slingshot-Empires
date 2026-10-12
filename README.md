@@ -1,6 +1,25 @@
-# Slingshot Empires — Flight Lab v0.13
+# Slingshot Empires — Flight Lab v0.14
 
 Live game: https://techmonius.github.io/Slingshot-Empires/
+
+## v0.14 — persistent multi-rocket orbital stations
+
+Each destination planet (Aurora and Cinder) has an independently saved **orbital station project**. The player must pilot **three separate successful safe-orbit rockets** to commission a station. A mission is a delivery only after the player applies their own manual burns and completes a safe revolution. Crashes, escapes, and the star mission never deliver modules.
+
+### Construction, score, improvements
+- 0/3: blueprint. 1/3 and 2/3: construction is visible as an increasing partial orbit ring. 3/3: a permanent orbital station marker appears and moves around the planet in its representative orbit.
+- The player's **three best orbit grades (numerical scores)** become that station's structural/orbital quality record. Each additional completed mission is logged; if its score enters the top three, it replaces a lower score. Repeating a bad mission cannot damage the existing station.
+- Provisional orbital **logistics quality** is `round(60 + 0.4 × average(best up to 3 recorded scores))` percent for a completed station. This represents the design target for *future* cargo-handling/transport efficiency. It is not yet connected to any actual production, fuel transport or route automation.
+- The 🛰 **Station network** button above the map opens a persistent dashboard showing both planets' progress, deliveries, grades and quality. It includes shortcuts to plan another rocket to either destination. Opening it mid-flight pauses the rocket; closing leaves it paused for safety.
+- The current target card displays station construction progress or quality. Successful missions report their delivered module and any station upgrade.
+- Existing save slots, wins and grades remain intact. A previously recorded planetary win migrates as **one** station module, using the historical grade if recorded. The system cannot infer multiple previous trips because older saves did not store that history.
+- All new construction data lives under `stations` in the existing `slingshot-flight-lab-v04` local save key.
+
+A visible station marker is currently a **representative orbit** based on the planet's gravitational parameter; individual module orbits and docking dynamics have not yet been implemented.
+
+### Planned follow-up work
+
+v0.15 adds multi-resource planetary surveying/mining only after station construction, including worlds that cannot locally produce fuel. v0.16 introduces processing/crafting and tech progression. Persistent, automatically repeatable logistical routes will first require manual proof-of-transfer and can then be upgraded by additional improved flights. Beyond that: moons, gravity assists, physically coherent body densities/distances, multiple star systems, and qualitatively new technology. See [GAME_DESIGN.md](GAME_DESIGN.md) for agreed long-range design principles.
 
 ## v0.13 — launch Δv precision matches orbital burns
 
