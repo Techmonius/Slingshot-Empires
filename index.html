@@ -240,7 +240,7 @@
     <div id="orbitViewTag" class="orbit-view-tag" hidden>PLANET-FRAME CAMERA</div>
     <div id="pathLegend" class="path-legend" hidden>
       <div class="grade-ribbon"><span class="grade-ribbon-label">CIRCULAR ORBIT HEATMAP</span><span class="heat-swatch s">S</span><span class="heat-swatch a">A</span><span class="heat-swatch b">B</span><span class="heat-swatch c">C</span><span class="heat-swatch d">D</span><span class="heat-swatch f">F</span></div>
-      <div class="path-keys"><span class="path-key"><i class="keyline" id="coastLegendKey"></i><span id="coastLegendText">Coast</span></span><span class="path-key"><i class="keyline after" id="burnLegendKey"></i><span id="burnLegendText">After burn</span></span><span class="legend-explain">Pe / Ap = extremes</span></div>
+      <div class="path-keys"><span class="path-key"><i class="keyline" id="coastLegendKey"></i><span id="coastLegendText">Coast</span></span><span class="path-key" id="burnLegendItem"><i class="keyline after" id="burnLegendKey"></i><span id="burnLegendText">After burn</span></span><span class="legend-explain">Pe / Ap = extremes</span></div>
     </div>
     <div class="arena-bottom"><div class="tip" id="touchTip">Drag from HOME to aim · Tap a planet to target it</div><div class="time-chip" id="clock">T + 0.0s</div></div>
   </main>
@@ -738,11 +738,22 @@ function updateControls(){
     const orbital=orbitalElements(rocket,target),trial=proposedBurn(),newOrbit=trial?orbitalElements(trial,target):orbital;
    rebuildBurnPreview();
    const rating=orbitRating(newOrbit,target);
+   const coastRating=burnPreview?.coast?.rating;
+   const coastColor=gradePaint(coastRating).solid,burnColor=gradePaint(rating).solid;
+   const gradeLabel=r=>r&&r.score!==null&&r.score!==undefined?r.grade+' '+r.score:(r?.status||'—');
+   $('coastLegendText').textContent='COAST '+gradeLabel(coastRating);
+   $('coastLegendKey').style.borderTopColor=coastColor;
+   $('burnLegendItem').hidden=!burnPreview?.after;
+   $('burnLegendText').textContent='BURN '+gradeLabel(rating);
+   $('burnLegendKey').style.borderTopColor=burnColor;
    $('captureValue').textContent=orbital.stable?`SAFE ORBIT · ${Math.floor(100*Math.min(1,stableSweep/TAU))}%`:`${burnCount} burn${burnCount===1?'':'s'} · ADJUST ORBIT`;
    $('orbitTelemetry').textContent=`RADIAL ${orbital.radial.toFixed(1)} · SIDEWAYS ${orbital.tangent.toFixed(1)} · CIRCLE ${orbital.circle.toFixed(1)} Δv`;
    const metric=newOrbit&&Number.isFinite(newOrbit.apo)?`Pe ${newOrbit.peri.toFixed(1)} / Ap ${newOrbit.apo.toFixed(1)}`:
     (newOrbit?`Pe ${newOrbit.peri.toFixed(1)} / unbound`:'No orbit data');
-   $('burnPrediction').textContent=`${trial?'AFTER BURN':'NO BURN · COAST'} · ${rating.status} · ${metric}`;
+   $('burnPrediction').textContent=trial
+    ?'COAST '+gradeLabel(coastRating)+' → BURN '+gradeLabel(rating)+' · '+metric
+    :'COAST '+gradeLabel(coastRating)+' · '+metric;
+   $('burnPrediction').style.color=burnColor;
    $('burnPrediction').className=`burn-readout ${rating.tone}`;
    $('gradeMark').textContent=rating.grade;
    $('gradeMark').className=`grade-mark ${rating.tone}`;
@@ -977,6 +988,10 @@ function render(){
   const p=getBody(target,t),loc=worldToScreen(p.x,p.y);
   lineCircle(loc.x,loc.y,CAPTURE_RADIUS[target]*camera.scale,'rgba(116,238,177,.65)',1.6,[5,4]);
  }
+ if(localEncounter&&rocket&&target!=='star'){
+  const planet=getBody(target,t);
+  drawOrbitGradeHeatmap(target,planet);
+ }
  if(localEncounter&&rocket&&!paused){const o=orbitalElements(rocket,target);if(o&&o.energy<0&&Number.isFinite(o.apo)&&o.apo<ORBIT_LIMIT[target]*2){const p=getBody(target,t),loc=worldToScreen(p.x,p.y);lineCircle(loc.x,loc.y,o.apo*camera.scale,'rgba(139,248,200,.23)',1,[2,6]);}}
  if(phase==='aiming'&&showPath&&path.length){
   ctx.beginPath();for(let i=0;i<path.length;i++){const s=worldToScreen(path[i].x,path[i].y);i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y)}
@@ -996,14 +1011,13 @@ function render(){
    }
    ctx.setLineDash(dash);ctx.strokeStyle=color;ctx.lineWidth=strokeWidth;ctx.stroke();ctx.setLineDash([]);
   }
-  drawPredictionLine(burnPreview.coast,'rgba(170,182,200,.65)',[3,5],2);
+  const coastColor=gradePaint(burnPreview.coast?.rating).solid;
+  drawPredictionLine(burnPreview.coast,coastColor,[4,5],2.6);
   if(burnPreview.after){
-   const rating=burnPreview.after.rating;
-   if(rating.status==='SAFE ORBIT'){
-    ctx.save();ctx.shadowColor='#49ebb6';ctx.shadowBlur=9;
-    drawPredictionLine(burnPreview.after,'rgba(67,222,247,.95)',[],2.8);
-    ctx.restore();
-   }else drawPredictionLine(burnPreview.after,'rgba(77,218,251,.95)',[],2.8);
+   const burnColor=gradePaint(burnPreview.after.rating).solid;
+   ctx.save();ctx.shadowColor=burnColor;ctx.shadowBlur=7;
+   drawPredictionLine(burnPreview.after,burnColor,[],3);
+   ctx.restore();
   }
   // Show periapsis/apoapsis on the currently selected path, even for a zero-Δv coast.
   const marked=burnPreview.after||burnPreview.coast,pts=marked?.extrema;
@@ -1031,7 +1045,7 @@ function render(){
   if(dragging)lineCircle(hp.x,hp.y,Math.max(24,arrow),'#ffffff28',1,[4,6]);
  }
  if(phase!=='aiming'&&rocket){
-  if(trail.length>1){ctx.beginPath();trail.forEach((pos,i)=>{const s=worldToScreen(pos.x,pos.y);i===0?ctx.moveTo(s.x,s.y):ctx.lineTo(s.x,s.y)});ctx.strokeStyle='#75eaffba';ctx.lineWidth=2;ctx.stroke()}
+  if(trail.length>1){ctx.beginPath();trail.forEach((pos,i)=>{const s=worldToScreen(pos.x,pos.y);i===0?ctx.moveTo(s.x,s.y):ctx.lineTo(s.x,s.y)});ctx.strokeStyle=localEncounter?gradePaint(orbitRating(orbitalElements(rocket,target),target)).solid:'#75eaffba';ctx.lineWidth=2;ctx.stroke()}
   const s=worldToScreen(rocket.x,rocket.y);ctx.save();ctx.translate(s.x,s.y);ctx.rotate(Math.atan2(rocket.vy,rocket.vx)+PI/2);
   ctx.shadowColor='#7bdffe';ctx.shadowBlur=12;ctx.fillStyle='#e9fcff';ctx.beginPath();ctx.moveTo(0,-7);ctx.lineTo(4,5);ctx.lineTo(0,3);ctx.lineTo(-4,5);ctx.closePath();ctx.fill();ctx.restore();
    if(localEncounter&&paused&&target!=='star'){
