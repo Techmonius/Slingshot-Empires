@@ -1,5 +1,5 @@
 {
-  "version": "0.10.0",
-  "displayVersion": "V0.10",
-  "notes": "Compact control dock, auto-hide during coasting, and a larger map with full controls available on demand."
+  "version": "0.11.0",
+  "displayVersion": "V0.11",
+  "notes": "Launch heading is now relative to Home orbital prograde: 0 prograde, 180 retrograde, +90 outward, -90 inward. Orbital burn controls unchanged."
 }
