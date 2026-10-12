@@ -1,6 +1,22 @@
-# Slingshot Empires — Flight Lab v0.9
+# Slingshot Empires — Flight Lab v0.10
 
 Live game: https://techmonius.github.io/Slingshot-Empires/
+
+## v0.10 — compact controls and map-first layout
+
+The lower control panel is now a **compact, collapsible dock** instead of a tall stack of fixed-height cards. The top header and statistics are thinner; labels, spacing, unused rows, sliders, fuel indicators, burn-planning cards, grade readouts, and mission links are tightened without removing any controls or precision. On shorter iPhone screens, the control contents scroll independently instead of compressing the map.
+
+**MAP ↑** hides the dock's controls and gives their entire area back to the map. The small dock header remains visible as **CONTROLS ↓** so you can reopen it at any time.
+
+Automatic behavior:
+- The panel opens initially for launch planning.
+- After launch, it collapses to emphasize the flight map.
+- Reaching a planetary encounter or pausing manually expands burn-planning controls.
+- Coasting or waiting to apoapsis/periapsis collapses the panel; it expands again when the coast/warp is stopped.
+- Resetting the mission reopens launch controls.
+- You can override these defaults at any time by tapping the dock toggle.
+
+Pinch zoom, map panning, 0.1-degree angle controls, 0.01 delta-v burn increments, transfer-time waiting, and both apsis-wait features remain unchanged. The layout does not change orbital physics, fuel or saved progress.
 
 ## v0.9 — wait for orbital maneuver points
 
