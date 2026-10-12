@@ -1,5 +1,5 @@
 {
-  "version": "0.12.0",
-  "displayVersion": "V0.12",
-  "notes": "Orbit burns now aim relative to planet-centered orbital prograde: 0° prograde, 180° retrograde, +90° outward, -90° inward. All burn projections and touch controls updated."
+  "version": "0.13.0",
+  "displayVersion": "V0.13",
+  "notes": "Interplanetary launch delta-v now has 0.01 precision, +/-0.10 and +/-0.01 adjustment buttons, and reset to zero, matching orbital burn controls."
 }
