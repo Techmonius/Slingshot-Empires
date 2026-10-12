@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Slingshot">
   <meta name="description" content="A tiny orbital strategy game. Aim, launch, and intercept moving worlds.">
-  <meta property="og:title" content="Slingshot Empires — Prototype 0.9">
+  <meta property="og:title" content="Slingshot Empires — Prototype 1.0">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -124,13 +124,80 @@
     .dialog small{display:block;margin-top:14px;color:#8297b7;font-size:10px}
     @media(max-height:690px){.top{padding-top:calc(env(safe-area-inset-top,0px) + 6px);padding-bottom:7px}.subtitle{font-size:16px}.controls{padding-top:8px;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 8px)}.controls-grid{margin-bottom:6px}.mode-row{margin-bottom:5px}.mission-link{margin-top:3px}.primary,.secondary{min-height:41px}.step{padding:2px 12px}}
     @media(min-width:700px){.app{border-left:1px solid #32405d;border-right:1px solid #32405d}.controls{padding-left:26px;padding-right:26px}}
+    /* Compact pilot dock: map space is prioritized over ornament and empty rows. */
+    .top{padding:calc(env(safe-area-inset-top,0px) + 6px) 11px 6px;gap:6px}
+    .brand{font-size:8px;letter-spacing:.15em}
+    .subtitle{font-size:16px;letter-spacing:-.25px;margin-top:1px}
+    .version{font-size:9px;padding:3px 5px}
+    .stats{gap:4px}
+    .stat{font-size:10px;padding:5px 6px;border-radius:7px}
+    .stat strong{font-size:11px}
+    .controls{padding:6px 10px calc(env(safe-area-inset-bottom,0px) + 6px);max-height:62dvh;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+    .mode-row{gap:6px;margin:0 0 5px;min-height:27px;flex-shrink:0}
+    .mode-title{font-size:11px;letter-spacing:.035em}
+    .mode-sub{display:none}
+    .status-pill{margin-left:auto;font-size:9px;padding:3px 6px}
+    .panel-toggle{border:1px solid #34536f;background:#172e46;color:#daf4ff;border-radius:8px;min-height:29px;min-width:73px;padding:3px 9px;font-size:10px;font-weight:800;white-space:nowrap}
+    .control-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+    .control-body::-webkit-scrollbar{display:none}
+    .controls.collapsed{max-height:none}
+    .controls.collapsed .control-body{display:none!important}
+    .controls.collapsed .mode-row{margin-bottom:0}
+    .controls-grid{gap:8px;margin-bottom:5px}
+    .slider-head{margin-bottom:1px;font-size:10px}
+    .slider-head output{font-size:13px}
+    input[type=range]{height:19px}
+    .step-row{margin-top:0}
+    .step{font-size:10px;padding:3px 7px;min-width:32px}
+    .launch-angle-steps .step{padding:3px 0}
+    .wait-panel{margin:0 0 6px;padding:5px 7px;border-radius:8px}
+    .wait-head{margin-bottom:0;font-size:10px}
+    .wait-head output{font-size:12px}
+    .wait-panel input[type=range]{height:16px}
+    .wait-steps{gap:4px;margin-top:1px}
+    .wait-steps button{min-height:26px;padding:2px 1px;font-size:10px}
+    .primary,.secondary{min-height:39px;border-radius:9px}
+    .action-row{gap:6px}
+    .primary{font-size:12px;letter-spacing:.03em}
+    .secondary{min-width:68px;font-size:11px;padding:0 9px}
+    .mission-link{margin-top:3px;font-size:10px;line-height:1.15}
+    .mission-link button{font-size:10px;padding:2px 2px}
+    .fuel-line{min-height:15px;margin-bottom:2px;font-size:10px}
+    .fuel-line strong{font-size:12px}
+    .fuel-track{height:4px;margin-bottom:5px}
+    .burn-planner{padding:7px;margin-bottom:4px;border-radius:9px}
+    .burn-title{margin-bottom:3px;font-size:9px}
+    .burn-aim-grid{gap:8px;margin-bottom:3px}
+    .burn-aim-grid .slider-head output{font-size:12px}
+    .tiny-steps button{min-height:26px}
+    .angle-frame{margin-top:2px}
+    .burn-readout{font-size:10px;margin:3px 0 0;line-height:1.25}
+    .grade-line{min-height:22px;padding-top:3px;margin-top:3px;gap:5px}
+    .grade-mark{font-size:17px;min-width:22px}
+    .grade-copy{font-size:9px}
+    .apsis-controls{margin:4px 0 0;gap:5px}
+    .apsis-controls button{min-height:30px;padding:3px 2px;font-size:10px}
+    .apsis-status{min-height:0;margin-top:2px;font-size:9px}
+    #orbitTelemetry{min-height:0;margin:0 0 3px;font-size:9px}
+    #orbitTelemetry:empty{display:none}
+    .path-legend{bottom:38px;left:9px;font-size:9px;gap:6px}
+    .arena-bottom{bottom:6px;left:8px;right:8px}
+    .tip,.time-chip{font-size:10px;padding:5px 7px}
+    @media(max-height:720px){
+      .top{padding-top:calc(env(safe-area-inset-top,0px) + 4px);padding-bottom:4px}
+      .controls{padding-top:4px;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 4px);max-height:58dvh}
+      .mode-row{margin-bottom:3px;min-height:25px}
+      .panel-toggle{min-height:27px}
+      .mission-link{margin-top:2px}
+      .burn-planner{padding:5px}
+    }
     @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
   </style>
 </head>
 <body>
 <div class="app">
   <header class="top">
-    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.9</span></div></div>
+    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V1.0</span></div></div>
     <div class="stats"><div class="stat">Shots <strong id="shotCount">0</strong></div><div class="stat">Wins <strong id="winCount">0</strong>/3</div></div>
   </header>
   <main class="arena" id="arena" aria-label="Interactive solar system. Drag outward from the blue home planet to aim a rocket.">
@@ -144,7 +211,8 @@
     <div class="arena-bottom"><div class="tip" id="touchTip">Drag from HOME to aim · Tap a planet to target it</div><div class="time-chip" id="clock">T + 0.0s</div></div>
   </main>
   <section class="controls" aria-label="Launch controls">
-    <div class="mode-row"><div><div class="mode-title" id="controlTitle">Launch parameters</div><div class="mode-sub" id="controlSub">Relative to moving HOME planet</div></div><span id="statusPill" class="status-pill">READY</span></div>
+    <div class="mode-row"><div><div class="mode-title" id="controlTitle">Launch parameters</div><div class="mode-sub" id="controlSub">Relative to moving HOME planet</div></div><span id="statusPill" class="status-pill">READY</span><button id="toggleControls" class="panel-toggle" type="button" aria-controls="controlBody" aria-expanded="true" aria-label="Collapse control panel to enlarge map">MAP ↑</button></div>
+    <div class="control-body" id="controlBody">
     <div id="planningPanel"><div class="controls-grid">
       <div class="slider-col"><div class="slider-head"><label for="angleRange">Angle</label><output id="angleValue" for="angleRange">28.0°</output></div><input id="angleRange" type="range" min="-180" max="180" step="0.1" value="28"><div class="launch-angle-steps"><button class="step" id="angleMinus" aria-label="Decrease launch angle by one degree">−1°</button><button class="step" id="angleMinusFine" aria-label="Decrease launch angle by 0.1 degree">−0.1°</button><button class="step" id="anglePlusFine" aria-label="Increase launch angle by 0.1 degree">+0.1°</button><button class="step" id="anglePlus" aria-label="Increase launch angle by one degree">+1°</button></div></div>
       <div class="slider-col"><div class="slider-head"><label for="speedRange">Launch Δv</label><output id="speedValue" for="speedRange">32.0</output></div><input id="speedRange" type="range" min="0" max="65" step="0.1" value="32"><div class="step-row"><button class="step" id="speedMinus" aria-label="Decrease launch delta v by 0.1">−0.1</button><button class="step" id="speedPlus" aria-label="Increase launch delta v by 0.1">+0.1</button></div></div>
@@ -201,6 +269,7 @@
       <div class="action-row"><button id="orbitButton" class="primary" disabled>WAIT FOR ENCOUNTER</button><button id="coastButton" class="secondary">PAUSE</button></div>
     </div>
     <div class="mission-link">Target: <button id="missionAurora">Aurora</button> · <button id="missionCinder">Cinder</button> · <button id="missionStar">Star</button></div>
+    </div>
   </section>
   <div class="shade" id="resultShade" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
     <div class="dialog"><div id="dialogSymbol" class="dialog-symbol">✦</div><div class="eyebrow" id="dialogEyebrow">FLIGHT COMPLETE</div><h2 id="dialogTitle">Mission accomplished</h2><p id="dialogDetail"></p><div class="dialog-btns"><button class="secondary" id="dialogRetry">TRY AGAIN</button><button class="primary" id="dialogNext">NEXT TARGET</button></div><small>Burns are controlled by you. Inside the encounter zone the ship follows a planet-relative two-body model; getting a safe orbit takes piloting.</small></div>
