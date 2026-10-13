@@ -89,9 +89,9 @@ assert.equal(fresh.api.select('standard-tank'),true);
 assert.ok(fresh.elem('tankSockets').innerHTML.includes('DROP FIT 112.0%'));
 assert.ok(fresh.elem('tankSockets').innerHTML.includes('DROP FIT 88.0%'));
 assert.equal(fresh.api.select('standard-tank'),true);
-assert.equal(fresh.api.place('standard-tank','tank:1','tank:0'),true);
 const initialFuelTime=fresh.elem('fuelServiceTime').textContent;
 const initialRetained=fresh.elem('fuelPreserved').textContent;
+assert.equal(fresh.api.place('standard-tank','tank:1','tank:0'),true);
 const optimized=fresh.api.layout(),afterMove=fresh.api.evaluate().stats;
 assert.ok(parseFloat(fresh.elem('fuelServiceTime').textContent)<parseFloat(initialFuelTime));
 assert.ok(parseFloat(fresh.elem('fuelPreserved').textContent.match(/estimated loss ([0-9.]+)%/)[1])<
