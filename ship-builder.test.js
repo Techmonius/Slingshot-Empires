@@ -78,4 +78,30 @@ const reloaded=create(t.save);
 assert.equal(reloaded.api.snapshot().payload.iron,4);
 assert.equal(reloaded.api.evaluate().ok,true);
 assert.equal(t.save['slingshot-flight-lab-v04'],undefined,'Prototype must not change live game saves');
+// New player choice: mounting order affects servicing but never rocket movement.
+const fresh=create(),initial=fresh.api.layout();
+const initialFlight=fresh.api.evaluate().stats;
+assert.equal(initial.ok,true);
+assert.ok(fresh.elem('layoutFuel').textContent.includes('%'));
+assert.ok(fresh.elem('tankSockets').innerHTML.includes('Fuel servicing'));
+assert.ok(fresh.elem('layoutAdvice').textContent.includes('AFT'));
+assert.equal(fresh.api.place('standard-tank','tank:1','tank:0'),true);
+const optimized=fresh.api.layout(),afterMove=fresh.api.evaluate().stats;
+assert.ok(optimized.overall>initial.overall);
+assert.ok(optimized.fuelHandling>initial.fuelHandling);
+assert.equal(optimized.cargoHandling,initial.cargoHandling);
+assert.equal(fresh.elem('layoutFuel').textContent,optimized.fuelHandling.toFixed(1)+'%');
+for(const key of ['deltaV','wetMass','initialAcceleration','thrust','fuelLoaded'])
+ assert.equal(afterMove[key],initialFlight[key],'Moving an unchanged part must not affect '+key);
+assert.equal(fresh.api.place('compact-tank','tank:0'),true);
+const wellArranged=fresh.api.layout(),goodFlight=fresh.api.evaluate().stats;
+assert.equal(wellArranged.slots['tank:0'].position,'FORWARD');
+assert.equal(wellArranged.slots['tank:1'].position,'AFT');
+assert.equal(wellArranged.fuelHandling,112);
+assert.equal(fresh.api.place('standard-tank','tank:0','tank:1'),true);
+const poorlyArranged=fresh.api.layout(),badFlight=fresh.api.evaluate().stats;
+assert.ok(wellArranged.overall>poorlyArranged.overall);
+assert.equal(poorlyArranged.fuelHandling,88);
+for(const key of ['deltaV','wetMass','initialAcceleration','fuelCapacity','cargoCapacity'])
+ assert.equal(goodFlight[key],badFlight[key],'Swapping modules must not change '+key);
 console.log('2D shipyard interaction tests passed.');
