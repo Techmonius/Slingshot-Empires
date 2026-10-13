@@ -31,6 +31,9 @@ header{display:flex;justify-content:space-between;gap:9px;align-items:start;marg
 .socket.drop-valid{border-color:#85f9d5;background:#1b766696;box-shadow:0 0 0 2px #68d5b540}
 .socket.drop-invalid{border-color:#ed8c9c;background:#7d314b77}
 .socket.selected{outline:2px solid #aee9ff;outline-offset:2px}
+.socket.best-fit{border-color:#71e3b8;background:#174f4dce}
+.socket.weak-fit{border-color:#bd9477;background:#49322acc}
+
 .empty{font-size:10px;line-height:1.25;opacity:.85;text-align:center}.filled{display:flex;align-items:center;gap:6px;font-weight:800;font-size:11px;line-height:1.18;text-align:left;min-width:0}
 .filled{touch-action:none}.filled .part-icon{min-width:27px;height:27px;background:#26445f;border-radius:6px;display:grid;place-items:center;font-size:18px;touch-action:none}
 .filled small{display:block;font-size:9px;color:#a4c7df;margin-top:2px;font-weight:600}
@@ -221,15 +224,26 @@ function evaluate(){
 }
 function socket(slot,title,layout){
  const part=slotValue(slot),meta=part?KNOWN[part]:null;
- const position=layout?.slots?.[slot];
+ const position=layout?.slots?.[slot],candidatePart=selection?.part;
+ const compatible=!!candidatePart&&validSlot(candidatePart,slot);
+ let preview=null;
+ if(compatible&&slotType(slot)!=='engine'){
+  const kind=slotType(slot),index=+slot.split(':')[1],list=[...state[kind+'s']];
+  list[index]=candidatePart;
+  preview=SHIPS.evaluateLayout({...state,[kind+'s']:list}).slots[slot]||null;
+ }
+ const mountStyle=compatible?' selected'+(preview?(preview.percent>=106?' best-fit':preview.percent<96?' weak-fit':''):''):'';
  const label=position?' · '+position.position+' · '+position.percent.toFixed(1)+'%':'';
- return '<div class="socket '+(selection&&validSlot(selection.part,slot)?'selected':'')+'" data-slot="'+slot+
- '" role="button" tabindex="0" aria-label="'+title+': '+(meta?meta.name:'empty')+label+'">'+
+ const hint=preview?'<span class="placement-tag '+(preview.percent>=106?'good':preview.percent<96?'suboptimal':'')+'">DROP FIT '+preview.percent.toFixed(1)+'%</span>':'';
+ return '<div class="socket'+mountStyle+'" data-slot="'+slot+
+ '" role="button" tabindex="0" aria-label="'+title+': '+(meta?meta.name:'empty')+label+
+ (preview?' · proposed '+preview.percent.toFixed(1)+'%':'')+'">'+
  (meta?'<div class="filled" data-installed="'+part+'"><span class="part-icon">'+PART_SYMBOL[meta.type]+'</span><div>'+meta.name+
  '<small>'+title+(position?' · '+position.position:'')+'</small>'+
  (position?'<span class="placement-tag '+(position.percent>=106?'good':position.percent<96?'suboptimal':'')+'">'+
- position.percent.toFixed(1)+'% '+position.benefit+'</span>':'')+'</div></div><button type="button" class="clear-slot" aria-label="Remove '+meta.name+'">×</button>':
- '<span class="empty">'+title+'<br>DRAG MODULE HERE</span>')+'</div>';
+ position.percent.toFixed(1)+'% '+position.benefit+'</span>':'')+hint+'</div></div>'+
+ '<button type="button" class="clear-slot" aria-label="Remove '+meta.name+'">×</button>':
+ '<span class="empty">'+title+'<br>DRAG MODULE HERE'+hint+'</span>')+'</div>';
 }
 function renderTray(){
  $('partTray').innerHTML=SHIPS.PART_IDS.filter(id=>KNOWN[id].type!=='frame').map(id=>{
@@ -268,7 +282,7 @@ function render(){
  $('massStat').textContent=stats?stats.wetMass.toFixed(2):'—';
  $('cargoStat').textContent=stats?stats.cargoUnits.toFixed(0)+' / '+stats.cargoCapacity.toFixed(0):
    Object.values(state.payload).reduce((a,b)=>a+b,0).toFixed(0)+' / '+state.bays.reduce((a,b)=>a+(KNOWN[b]?.cargoCapacity||0),0);
- $('stageTip').textContent=selection?'Selected '+KNOWN[selection.part].name+' — tap a highlighted matching rocket socket.':'Drag a part onto a compatible socket, or tap a part then its socket.';
+ $('stageTip').textContent=selection?'Selected '+KNOWN[selection.part].name+' — highlighted sockets preview efficiency before placement. Tap or drag to attach.':'Drag a part onto a compatible socket, or tap a part then its socket.';
  const note=result.ok?
    (feedback?feedback+'. ':'')+'Flight stats updated. Rocket flight integration is coming later.':
    result.issues.join(' · ');
