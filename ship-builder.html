@@ -32,7 +32,7 @@ header{display:flex;justify-content:space-between;gap:9px;align-items:start;marg
 .socket.drop-invalid{border-color:#ed8c9c;background:#7d314b77}
 .socket.selected{outline:2px solid #aee9ff;outline-offset:2px}
 .empty{font-size:10px;line-height:1.25;opacity:.85;text-align:center}.filled{display:flex;align-items:center;gap:6px;font-weight:800;font-size:11px;line-height:1.18;text-align:left;min-width:0}
-.filled .part-icon{min-width:27px;height:27px;background:#26445f;border-radius:6px;display:grid;place-items:center;font-size:18px;touch-action:none}
+.filled{touch-action:none}.filled .part-icon{min-width:27px;height:27px;background:#26445f;border-radius:6px;display:grid;place-items:center;font-size:18px;touch-action:none}
 .filled small{display:block;font-size:9px;color:#a4c7df;margin-top:2px;font-weight:600}
 .clear-slot{position:absolute;right:2px;top:50%;transform:translateY(-50%);height:27px;width:22px;display:grid;place-items:center;padding:0;border:0;border-radius:5px;background:#31475b;color:#e9c6c6;font-weight:800}
 .flame{width:43px;height:25px;background:linear-gradient(#b9c9d7,#52667d);clip-path:polygon(17% 0,83% 0,100% 75%,68% 100%,32% 100%,0 75%);border-radius:0 0 10px 10px}
@@ -242,6 +242,7 @@ function render(){
 function select(id,origin=null){
  const p=KNOWN[id];
  if(!p||p.requires){warn('This module must be unlocked through research.',true);return false}
+ if(selection?.part===id&&selection?.origin===origin){selection=null;render();return true}
  selection={part:id,origin};feedback='';render();return true;
 }
 function setFuel(amount){const n=Number(amount);if(!Number.isFinite(n))return false;
@@ -286,6 +287,9 @@ function clearHighlights(){
 function begin(ev){
  if(ev.button!==undefined&&ev.button!==0)return;
  if(ev.target.closest('.clear-slot'))return;
+ // With a tray item selected, tapping an occupied mount should REPLACE it.
+ // Only start an installed-module drag when no tray selection is active.
+ if(selection&&ev.target.closest('[data-slot]'))return;
  const source=partSource(ev);if(!source)return;
  if(KNOWN[source.part]?.requires)return;
  gesture={...source,id:ev.pointerId,startX:ev.clientX,startY:ev.clientY,moved:false};
