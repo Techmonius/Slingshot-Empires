@@ -648,6 +648,35 @@ function rebuildBurnPreview(){
 }
 const STATION_REQUIRED=3;
 const STATION_PLANETS=['aurora','cinder'];
+const MAX_EXTRACTORS=2,MAX_OFFLINE_HOURS=6,MAX_STOCK_PER_DEPOSIT=400;
+const RESOURCE_DEPOSITS={
+ aurora:[
+  {id:'ice',name:'Water Ice',rate:2.2,reserve:1000,role:'Fuel feedstock · requires future processing',description:'Frozen water for hydrogen/oxygen fuel chemistry'},
+  {id:'silicon',name:'Silicon Ore',rate:1.4,reserve:650,role:'Electronics and glass',description:'Silicates for manufacturing and research'},
+  {id:'helium3',name:'Helium-3',rate:.42,reserve:230,role:'Advanced propulsion research',description:'Rare volatile deposits; potential late-game fuel chemistry'}
+ ],
+ cinder:[
+  {id:'iron',name:'Iron Ore',rate:2.5,reserve:1000,role:'Structural metals',description:'Rich deposits for stations and machine frames'},
+  {id:'copper',name:'Copper Ore',rate:1.6,reserve:720,role:'Circuits and wiring',description:'Conductive metal used in advanced components'},
+  {id:'sulfur',name:'Sulfur',rate:.85,reserve:430,role:'Chemical manufacturing',description:'Reactive mineral feedstock for chemical puzzles'}
+ ]
+};
+const planetFuel={aurora:'FUEL FEEDSTOCK: WATER ICE',cinder:'NO LOCAL FUEL · IMPORT REQUIRED'};
+function freshMine(now=Date.now()){return {surveyed:false,rigs:[],stock:{},extracted:{},lastAt:now};}
+function readMine(raw,id,now=Date.now()){
+ const mine=freshMine(now),deposits=RESOURCE_DEPOSITS[id];
+ if(!raw||typeof raw!=='object'||Array.isArray(raw))return mine;
+ mine.surveyed=raw.surveyed===true;
+ const valid=new Set(deposits.map(d=>d.id));
+ mine.rigs=mine.surveyed&&Array.isArray(raw.rigs)?[...new Set(raw.rigs.filter(x=>valid.has(x)))].slice(0,MAX_EXTRACTORS):[];
+ for(const d of deposits){
+  const mined=raw.extracted&&raw.extracted[d.id],stock=raw.stock&&raw.stock[d.id];
+  mine.extracted[d.id]=Number.isFinite(mined)?Math.max(0,Math.min(d.reserve,mined)):0;
+  mine.stock[d.id]=Number.isFinite(stock)?Math.max(0,Math.min(MAX_STOCK_PER_DEPOSIT,mine.extracted[d.id],stock)):0;
+ }
+ mine.lastAt=Number.isFinite(raw.lastAt)?Math.min(now,Math.max(0,raw.lastAt)):now;
+ return mine;
+}
 const freshStation=()=>({deliveries:0,best:[]});
 function readSaved(){
  try{
@@ -668,8 +697,10 @@ function readSaved(){
     stations[id]={deliveries:1,best:Number.isFinite(grades[id])?[grades[id]]:[]};
    }else stations[id]=freshStation();
   }
-  return {shots:Number.isFinite(s.shots)?s.shots:0,grades,wins,stations};
- }catch{return {shots:0,wins:[],grades:{},stations:{aurora:freshStation(),cinder:freshStation()}}}
+  const timestamp=Date.now(),mines={};
+  for(const id of STATION_PLANETS)mines[id]=readMine(s.mines?.[id],id,timestamp);
+  return {shots:Number.isFinite(s.shots)?s.shots:0,grades,wins,stations,mines};
+ }catch{return {shots:0,wins:[],grades:{},stations:{aurora:freshStation(),cinder:freshStation()},mines:{aurora:freshMine(),cinder:freshMine()}}}
 }
 const saved=readSaved();
 function stationSummary(id){
@@ -734,8 +765,8 @@ function setPanelCollapsed(collapsed){
  // Force Canvas resolution and hit-test camera to follow the resized play area.
  requestAnimationFrame(resize);
 }
-let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,stations=saved.stations,target='aurora',angle=0,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,burnDragging=false,rocket=null,simT=0,waitTime=0,launchEpoch=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=0,burnAngle=0,orbitWait=0,orbitForecastCache=null,holdPointer=null,holdOrigin=null,holdDouble=false,warpTarget=null,warpStop=null,apsisCacheRocket=null,apsisCache=null,burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
-function store(){try{localStorage.setItem(DATA_KEY,JSON.stringify({shots,wins:[...wins],grades,stations}))}catch{}}
+let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,stations=saved.stations,mines=saved.mines,mineScreenPlanet=null,target='aurora',angle=0,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,burnDragging=false,rocket=null,simT=0,waitTime=0,launchEpoch=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=0,burnAngle=0,orbitWait=0,orbitForecastCache=null,holdPointer=null,holdOrigin=null,holdDouble=false,warpTarget=null,warpStop=null,apsisCacheRocket=null,apsisCache=null,burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
+function store(){try{localStorage.setItem(DATA_KEY,JSON.stringify({shots,wins:[...wins],grades,stations,mines}))}catch{}}
 function orbitPos(p,t){const omega=Math.sqrt(MU_STAR/(p.orbit**3));const q=p.phase+omega*t;return {x:p.orbit*Math.cos(q),y:p.orbit*Math.sin(q),vx:-p.orbit*omega*Math.sin(q),vy:p.orbit*omega*Math.cos(q)}}
 function bodiesAt(t){return PLANETS.map(p=>({...p,...orbitPos(p,t)}))}
 function getBody(id,t){if(id==='star')return {...STAR,x:0,y:0,vx:0,vy:0};const p=PLANETS.find(p=>p.id===id);return {...p,...orbitPos(p,t)}}
