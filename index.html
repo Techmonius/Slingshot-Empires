@@ -737,6 +737,8 @@ function updateStationUI(){
   $('station'+title+'Description').textContent=u.operational
    ?u.deliveries+' deliveries · Top orbit scores: '+(u.best.length?u.best.join(', '):'unrated')
    :u.modules+' of '+STATION_REQUIRED+' modules · '+(STATION_REQUIRED-u.modules)+' more needed';
+  $('stationMine'+title).disabled=!u.operational;
+  $('stationMine'+title).textContent=!u.operational?'MINING LOCKED':mines[id].surveyed?'SURFACE MINING':'SURVEY PLANET';
   $('station'+title+'Score').textContent=u.operational
    ?(u.efficiency===null?'QUALITY UNRATED':u.efficiency+'% LOGISTICS QUALITY')
    :(u.score===null?'NO ORBIT QUALITY':u.score+'/100 AVG QUALITY');
@@ -837,6 +839,8 @@ function closeMiningScreen(){
  openStationDashboard();
 }
 function openStationDashboard(){
+ for(const id of STATION_PLANETS)settleMine(id);
+ store();
  holdPointer=null;holdOrigin=null;holdDouble=false;
  if(phase==='flying'&&!paused){paused=true;setPanelCollapsed(false);updateControls();}
  updateStationUI();
@@ -1444,10 +1448,23 @@ $('pauseButton').addEventListener('click',()=>{if(phase==='flying'){if(warpTarge
 for(const id of ['aurora','cinder','star'])$('mission'+id[0].toUpperCase()+id.slice(1)).addEventListener('click',()=>chooseTarget(id));
 $('stationButton').addEventListener('click',openStationDashboard);
 $('stationClose').addEventListener('click',closeStationDashboard);
+$('mineBack').addEventListener('click',closeMiningScreen);
+$('mineSurvey').addEventListener('click',()=>{
+ if(mineScreenPlanet)surveyPlanet(mineScreenPlanet);
+ renderMiningScreen();
+});
+$('mineDeposits').addEventListener('click',e=>{
+ const button=e.target.closest('button[data-resource]');
+ if(!button||!mineScreenPlanet)return;
+ toggleMineRig(mineScreenPlanet,button.dataset.resource);
+ renderMiningScreen();
+});
+setInterval(()=>{if(mineScreenPlanet&&$('miningShade').classList.contains('show'))renderMiningScreen()},5000);
 for(const id of STATION_PLANETS){
  $('stationTo'+id[0].toUpperCase()+id.slice(1)).addEventListener('click',()=>{
   closeStationDashboard();chooseTarget(id);
  });
+ $('stationMine'+id[0].toUpperCase()+id.slice(1)).addEventListener('click',()=>openMiningScreen(id));
 }
 $('dialogRetry').addEventListener('click',resetFlight);$('dialogNext').addEventListener('click',nextTarget);
 window.addEventListener('blur',()=>{holdPointer=null;holdOrigin=null;holdDouble=false;updateControls()});
@@ -1457,7 +1474,7 @@ if('ResizeObserver' in window)new ResizeObserver(resize).observe(arena);
 resize();setCamera();predict();updateControls();requestAnimationFrame(frame);
 // Check for new releases when the Home Screen app opens, resumes, and while it remains open.
 // Defer updates during a live flight so the player's maneuver is not interrupted.
-const APP_RELEASE='0.14.2';
+const APP_RELEASE='0.15.0';
 let checkingRelease=false, pendingRelease=null, applyingRelease=false;
 function applyPendingRelease(){
  if(!pendingRelease||phase==='flying'||applyingRelease)return;
@@ -1500,11 +1517,11 @@ if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
 }
 // Expose a tiny diagnostic API for automated regression tests, not gameplay.
 window.__flightLab={getState:()=>({phase,target,angle,speed,simT,shots,wins:[...wins],prediction,
- panelCollapsed,stations:JSON.parse(JSON.stringify(stations)),stationStats:{aurora:stationSummary('aurora'),cinder:stationSummary('cinder')},waitTime,launchEpoch,zoom:currentMap().zoom,panX:currentMap().panX,panY:currentMap().panY,viewMode:orbitCameraActive()?'orbit':'system',fuel,paused,rocket,localEncounter,warpTarget,warpStop,orbitWait,holdDouble,planned:paused&&localEncounter?{safe:plannedOrbitState().safe,reason:plannedOrbitState().reason,state:plannedOrbitState().state}:null,apsis:paused&&localEncounter?apsisForecast():null,burnPower,burnAngle,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
+ panelCollapsed,stations:JSON.parse(JSON.stringify(stations)),stationStats:{aurora:stationSummary('aurora'),cinder:stationSummary('cinder')},mining:{aurora:mineSummary('aurora'),cinder:mineSummary('cinder')},mineScreenPlanet,waitTime,launchEpoch,zoom:currentMap().zoom,panX:currentMap().panX,panY:currentMap().panY,viewMode:orbitCameraActive()?'orbit':'system',fuel,paused,rocket,localEncounter,warpTarget,warpStop,orbitWait,holdDouble,planned:paused&&localEncounter?{safe:plannedOrbitState().safe,reason:plannedOrbitState().reason,state:plannedOrbitState().state}:null,apsis:paused&&localEncounter?apsisForecast():null,burnPower,burnAngle,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
  predicted:burnPreview?{coast:burnPreview.coast?.rating,after:burnPreview.after?.rating,points:burnPreview.after?.points.length,ending:burnPreview.after?.ending}:null,grades}),
  setAim:(a,v)=>{if(phase==='aiming')changeAim(a,v)},launchHeading,launchAngleFromHeading,setWaitTime,chooseTarget,resetFlight,
  setBurn:(a,power)=>{setBurnAngle(a);setBurnPower(power)},orbitBurnBasis,orbitBurnDirection,orbitBurnAngleFromHeading,setPanelCollapsed,zoomMap,panMap,
- applyBurn,setOrbitWait,waitToOrbitTime,plannedOrbitState,waitToApsis,stopWarp,stationSummary,openStationDashboard,closeStationDashboard,circularOrbitRating,orbitHeatBands,gradePaint,advanceTest:(n=1)=>{for(let i=0;i<n&&phase==='flying'&&!paused;i++)tickPhysics(.055);updateControls();}};
+ applyBurn,setOrbitWait,waitToOrbitTime,plannedOrbitState,waitToApsis,stopWarp,stationSummary,openStationDashboard,closeStationDashboard,surveyPlanet,toggleMineRig,mineSummary,settleMine,openMiningScreen,closeMiningScreen,circularOrbitRating,orbitHeatBands,gradePaint,advanceTest:(n=1)=>{for(let i=0;i<n&&phase==='flying'&&!paused;i++)tickPhysics(.055);updateControls();}};
 })();
 </script>
 </body>
