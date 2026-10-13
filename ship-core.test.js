@@ -43,4 +43,27 @@ assert.equal(ships.previewBurn(result.stats,-1,2).ok,false);
 assert.equal(base.tanks.length,1);
 assert.equal(base.fuelUnits,7);
 assert.equal(Object.keys(base.payload).length,0);
+// Attachment position is operational-only: servicing and handling can improve
+// without altering any movement/propulsion statistics for identical hardware.
+const forward=ships.evaluateLayout({...base,tanks:['standard-tank',null]});
+const aft=ships.evaluateLayout({...base,tanks:[null,'standard-tank']});
+assert.equal(forward.ok,true);assert.equal(aft.ok,true);
+assert.ok(aft.fuelHandling>forward.fuelHandling);
+assert.ok(aft.overall>forward.overall);
+assert.equal(aft.cargoHandling,112,'One forward cargo socket has no impossible relocation');
+assert.equal(aft.slots['tank:1'].bestPosition,'AFT');
+const ideal={...base,tanks:['compact-tank','standard-tank'],fuelUnits:10};
+const swapped={...base,tanks:['standard-tank','compact-tank'],fuelUnits:10};
+const optimalLayout=ships.evaluateLayout(ideal),badLayout=ships.evaluateLayout(swapped);
+assert.ok(optimalLayout.overall>badLayout.overall);
+assert.equal(optimalLayout.fuelHandling,112);
+assert.equal(badLayout.fuelHandling,88);
+const optimalFlight=ships.evaluateDesign(ideal),badFlight=ships.evaluateDesign(swapped);
+assert.equal(optimalFlight.ok,true);assert.equal(badFlight.ok,true);
+for(const k of ['dryMass','wetMass','payloadMass','deltaV','thrust','initialAcceleration','fuelCapacity','fuelLoaded'])
+ assert.equal(optimalFlight.stats[k],badFlight.stats[k],'Placement must not affect '+k);
+assert.deepEqual(ships.previewBurn(optimalFlight.stats,10,5),ships.previewBurn(badFlight.stats,10,5));
+assert.equal(ships.evaluateLayout({...base,tanks:[null,null],bays:[]}).overall,null);
+assert.equal(ships.evaluateLayout({...base,tanks:['cargo-pod']}).ok,false);
+assert.equal(ships.evaluateLayout({...base,tanks:['standard-tank','standard-tank','standard-tank']}).ok,false);
 console.log('Modular spacecraft regression tests passed.');
