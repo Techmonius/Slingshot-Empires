@@ -1,0 +1,46 @@
+'use strict';
+// Run: node ship-core.test.js
+// Pure ship-design regression tests; does not modify the playable game.
+const assert=require('node:assert/strict');
+const ships=require('./ship-core.js');
+const base=ships.starterDesign();
+const result=ships.evaluateDesign(base);
+assert.equal(result.ok,true);
+assert.equal(result.stats.fuelLoaded,7);
+assert.equal(result.stats.fuelCapacity,7);
+assert.equal(result.stats.cargoCapacity,12);
+const loaded=ships.evaluateDesign({...base,payload:{iron:8}});
+assert.equal(loaded.ok,true);
+assert.ok(loaded.stats.deltaV<result.stats.deltaV,'Cargo must cost delta-v');
+assert.ok(loaded.stats.initialAcceleration<result.stats.initialAcceleration,'Cargo must reduce acceleration');
+const lighterFuel=ships.evaluateDesign({...base,fuelUnits:3});
+assert.ok(lighterFuel.stats.deltaV<result.stats.deltaV);
+assert.ok(lighterFuel.stats.initialAcceleration>result.stats.initialAcceleration);
+const addedTank=ships.evaluateDesign({...base,tanks:['standard-tank','compact-tank'],fuelUnits:10});
+assert.ok(addedTank.stats.deltaV>result.stats.deltaV);
+assert.equal(ships.evaluateDesign({...base,tanks:['standard-tank','standard-tank','standard-tank']}).ok,false);
+assert.equal(ships.evaluateDesign({...base,payload:{ice:13}}).ok,false);
+assert.equal(ships.evaluateDesign({...base,fuelUnits:99}).ok,false);
+assert.equal(ships.evaluateDesign({...base,fuelUnits:0}).stats.deltaV,0);
+assert.equal(ships.evaluateDesign({...base,engine:'vacuum-engine'}).ok,false);
+assert.equal(ships.evaluateDesign({...base,engine:'vacuum-engine'},{technology:['vacuum-propulsion']}).ok,true);
+assert.equal(ships.evaluateDesign({...base,frame:'cargo-frame'}).ok,false);
+assert.equal(ships.evaluateDesign({...base,frame:'cargo-frame'},{technology:['expanded-shipbuilding']}).ok,true);
+assert.equal(ships.evaluateDesign({...base,payload:{unobtainium:1}}).ok,false);
+for(const invalid of [NaN,Infinity,-1])
+ assert.equal(ships.evaluateDesign({...base,fuelUnits:invalid}).ok,false);
+const zero=ships.previewBurn(result.stats,7,0);
+assert.equal(zero.ok,true);
+assert.equal(zero.spent,0);
+const first=ships.previewBurn(result.stats,7,5);
+const second=ships.previewBurn(result.stats,first.remainingFuel,4);
+assert.equal(first.ok,true);assert.equal(second.ok,true);
+assert.ok(first.spent>0&&second.spent>0);
+assert.ok(Math.abs(result.stats.deltaV-9-second.remainingDeltaV)<1e-9);
+assert.equal(ships.previewBurn(result.stats,7,100).ok,false);
+assert.equal(ships.previewBurn(result.stats,7,-1).ok,false);
+assert.equal(ships.previewBurn(result.stats,-1,2).ok,false);
+assert.equal(base.tanks.length,1);
+assert.equal(base.fuelUnits,7);
+assert.equal(Object.keys(base.payload).length,0);
+console.log('Modular spacecraft regression tests passed.');
