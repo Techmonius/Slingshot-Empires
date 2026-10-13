@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Slingshot">
   <meta name="description" content="A tiny orbital strategy game. Aim, launch, and intercept moving worlds.">
-  <meta property="og:title" content="Slingshot Empires — Prototype 0.14.1">
+  <meta property="og:title" content="Slingshot Empires — Prototype 0.14.2">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -215,13 +215,24 @@
     .station-card-footer button{background:#234762;border:1px solid #4d819d;border-radius:7px;min-height:32px;padding:5px 10px;color:#e7f7ff;font-size:11px;font-weight:850}
     .station-dialog-foot{font-size:10px;color:#9fbad1;line-height:1.5;margin:11px 0 0}
     @media(min-width:500px){.station-card-grid{grid-template-columns:1fr 1fr}}
+    .orbit-wait-panel{margin:7px 0 3px;padding:6px 7px;border:1px solid #315977;border-radius:8px;background:#0e2540}
+    .orbit-wait-panel .wait-head{font-size:10px;margin-bottom:2px}
+    .orbit-wait-panel .wait-head output{font-size:12px}
+    .orbit-wait-panel input[type=range]{height:17px}
+    .orbit-wait-actions{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin:2px 0 4px}
+    .orbit-wait-actions button{border:1px solid #355a79;border-radius:6px;background:#17324e;color:#cbeaff;font-size:10px;font-weight:800;min-height:26px;padding:2px 1px}
+    #orbitWaitGo{width:100%;border:1px solid #65a0be;border-radius:7px;background:#194763;color:#e2f7ff;font-size:11px;font-weight:850;padding:5px 6px;min-height:30px}
+    #orbitWaitGo:disabled{opacity:.42}
+    .orbit-wait-status{font-size:9px;line-height:1.25;color:#9bcce6;margin:3px 0 0}
+    .time-chip.holding{background:#286b62dd;color:#dcfff0;border:1px solid #66dab2}
+    @media(max-height:720px){.orbit-wait-panel{margin-top:4px;padding:4px 6px}.orbit-wait-actions button{min-height:24px}}
     @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
   </style>
 </head>
 <body>
 <div class="app">
   <header class="top">
-    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.14.1</span></div></div>
+    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.14.2</span></div></div>
     <div class="stats"><div class="stat">Shots <strong id="shotCount">0</strong></div><div class="stat">Wins <strong id="winCount">0</strong>/3</div></div>
   </header>
   <main class="arena" id="arena" aria-label="Interactive solar system. Drag outward from the blue home planet to aim a rocket.">
@@ -289,6 +300,19 @@
           <button id="waitApo" aria-label="Wait until next apoapsis">⏩ WAIT TO APOAPSIS</button>
         </div>
         <div class="apsis-status" id="apsisStatus" aria-live="polite">Choose an apsis to coast there without fuel.</div>
+        <div class="orbit-wait-panel" aria-label="Plan a timed orbital maneuver">
+          <div class="wait-head"><label for="orbitWaitRange">WAIT FOR MANEUVER TIME</label><output id="orbitWaitValue" for="orbitWaitRange">+0.0 s</output></div>
+          <input id="orbitWaitRange" type="range" min="0" max="120" step="0.5" value="0" aria-label="Seconds to coast before an orbital burn">
+          <div class="orbit-wait-actions">
+            <button id="orbitWaitNow" aria-label="Reset orbital maneuver time to now">NOW</button>
+            <button id="orbitWaitMinusTen" aria-label="Plan orbital maneuver ten seconds earlier">−10s</button>
+            <button id="orbitWaitMinusOne" aria-label="Plan orbital maneuver one second earlier">−1s</button>
+            <button id="orbitWaitPlusOne" aria-label="Plan orbital maneuver one second later">+1s</button>
+            <button id="orbitWaitPlusTen" aria-label="Plan orbital maneuver ten seconds later">+10s</button>
+          </div>
+          <button id="orbitWaitGo" type="button" disabled>WAIT TO TIME ▶</button>
+          <p id="orbitWaitStatus" class="orbit-wait-status">Coast to a chosen time, then choose your burn.</p>
+        </div>
       </div>
       <div id="orbitTelemetry"></div>
       <div class="action-row"><button id="orbitButton" class="primary" disabled>WAIT FOR ENCOUNTER</button><button id="coastButton" class="secondary">PAUSE</button></div>
@@ -384,11 +408,11 @@ function orbitBurnAngleFromHeading(r,id,heading){
  const pro=x*frame.proX+y*frame.proY,out=x*frame.radialX+y*frame.radialY;
  return Math.atan2(out,pro)/RAD;
 }
-function proposedBurn(){
- if(!localEncounter||!rocket||target==='star')return null;
- const dv=Math.min(burnPower,fuel),dir=orbitBurnDirection(rocket,target);
+function proposedBurn(r=rocket){
+ if(!localEncounter||!r||target==='star')return null;
+ const dv=Math.min(burnPower,fuel),dir=orbitBurnDirection(r,target);
  if(dv<=0||!dir)return null;
- return {...rocket,vx:rocket.vx+dir.x*dv,vy:rocket.vy+dir.y*dv};
+ return {...r,vx:r.vx+dir.x*dv,vy:r.vy+dir.y*dv};
 }
 function localAdvance(r,dt,id){
  const q=encounterFrame(r,id),rmag=Math.max(2,q.dist),factor=-q.p.mu/(rmag*rmag*rmag);
@@ -550,8 +574,10 @@ function traceLocal(initial,id){
 }
 function rebuildBurnPreview(){
  if(phase!=='flying'||!localEncounter||!paused||target==='star'||!rocket){burnPreview=null;return;}
- const coast=traceLocal(rocket,target),after=proposedBurn();
- burnPreview={coast,after:after?traceLocal(after,target):null};
+ const planned=plannedOrbitState(),base=planned.safe?planned.state:null;
+ if(!base){burnPreview=null;return;}
+ const coast=traceLocal(base,target),after=proposedBurn(base);
+ burnPreview={coast,after:after?traceLocal(after,target):null,base,wait:orbitWait};
 }
 const STATION_REQUIRED=3;
 const STATION_PLANETS=['aurora','cinder'];
@@ -1189,7 +1215,7 @@ if('ResizeObserver' in window)new ResizeObserver(resize).observe(arena);
 resize();setCamera();predict();updateControls();requestAnimationFrame(frame);
 // Check for new releases when the Home Screen app opens, resumes, and while it remains open.
 // Defer updates during a live flight so the player's maneuver is not interrupted.
-const APP_RELEASE='0.14.1';
+const APP_RELEASE='0.14.2';
 let checkingRelease=false, pendingRelease=null, applyingRelease=false;
 function applyPendingRelease(){
  if(!pendingRelease||phase==='flying'||applyingRelease)return;
