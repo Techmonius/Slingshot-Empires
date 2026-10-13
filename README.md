@@ -1,6 +1,23 @@
-# Slingshot Empires — Flight Lab v0.14.1
+# Slingshot Empires — Flight Lab v0.14.2
 
 Live game: https://techmonius.github.io/Slingshot-Empires/
+
+## v0.14.2 — hold-to-accelerate travel and timed orbital burns
+
+### Hold the interplanetary map for 2× travel speed
+While the rocket is **actively flying in the solar-system view**, a single-finger press and hold anywhere on the map doubles the existing simulated flight rate (for example, nominal 3.1× becomes 6.2×). Release to restore normal speed. The on-map time readout shows `HOLD 2×` while active. Sliding a finger enough to start map panning cancels the boost; adding a second finger to pinch-zoom also cancels it. Losing focus, switching to an orbital encounter, finishing flight or restarting resets it. Hold acceleration does not apply to the paused orbital planning screen or to transfer-window setup. It makes no change to trajectories, physics, consumable fuel, or saved progression.
+
+### Plan a manual orbital burn at a selected future time
+The orbital planner adds **WAIT FOR MANEUVER TIME**, similar to the prelaunch transfer-time slider:
+
+- Select **+0.0 to +120.0 simulation seconds** after the current paused rocket time in 0.5-s slider increments, with NOW / -10s / -1s / +1s / +10s controls.
+- While choosing a future time, preview the rocket's physically integrated *future planet-relative position* with a labeled ghost marker. The prograde-reference arrow, drag aiming, coast/orbital grade, and after-burn orbit projections are computed **from that future state**, not incorrectly from the current rocket. The camera compensates for the planet's orbital motion so overlays line up.
+- Press **WAIT TO TIME** to automatically fast-coast along the same planet-relative integrator until the specified moment, then **stop and reopen the manual thruster controls** for any burn. Waiting costs no fuel and applies no maneuver.
+- If the planned coast would impact the planet, escape the operational encounter region, or hit the flight-time limit first, **WAIT TO TIME is disabled** and the explanatory reason appears.
+- While a future time is selected, **APPLY BURN is disabled** until the wait has completed; accidental firing at the earlier position is prevented.
+- Existing **WAIT TO PERIAPSIS / APOAPSIS** options remain. Stopping a wait or manually resuming the flight clears an abandoned future-time plan.
+
+This update changes no underlying orbital physics, orbit grades, station scoring, transport resource rules or saved data. Tests covered hold/release/pan/pinch speed ratios, future-coast predictions vs actual arrival to numerical precision, unsafe-wait blocking, manual burn alignment at the future ghost marker, and the original Cinder S/90 mission including both apsis waits.
 
 ## v0.14.1 — orbit grade heatmap and graded flight paths
 
