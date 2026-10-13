@@ -34,6 +34,18 @@ header{display:flex;justify-content:space-between;gap:9px;align-items:start;marg
 .empty{font-size:10px;line-height:1.25;opacity:.85;text-align:center}.filled{display:flex;align-items:center;gap:6px;font-weight:800;font-size:11px;line-height:1.18;text-align:left;min-width:0}
 .filled{touch-action:none}.filled .part-icon{min-width:27px;height:27px;background:#26445f;border-radius:6px;display:grid;place-items:center;font-size:18px;touch-action:none}
 .filled small{display:block;font-size:9px;color:#a4c7df;margin-top:2px;font-weight:600}
+.placement-tag{display:block;font-size:9px;color:#9fbdd4;font-weight:800;white-space:nowrap}
+.placement-tag.good{color:#9af3c9}.placement-tag.suboptimal{color:#ffca96}
+.empty small{color:#86adc9}
+.layout-section{border:1px solid #456a7b;background:#142d3f;border-radius:10px;padding:9px;margin-top:9px}
+.layout-head{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;font-weight:850}
+.layout-head strong{font-size:15px;color:#b4f8d9;font-variant-numeric:tabular-nums}
+.layout-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}
+.layout-metrics div{border:1px solid #39566b;background:#0e263b;padding:6px 7px;border-radius:7px}
+.layout-metrics span{display:block;color:#9cbdd1;font-size:9px}.layout-metrics strong{display:block;font-size:13px;margin-top:2px;font-variant-numeric:tabular-nums}
+.layout-hint{font-size:10px;color:#b3d0dc;line-height:1.4;margin-top:6px}
+.layout-top-tip{font-size:10px;color:#a5f1d0;line-height:1.4}
+
 .clear-slot{position:absolute;right:2px;top:50%;transform:translateY(-50%);height:27px;width:22px;display:grid;place-items:center;padding:0;border:0;border-radius:5px;background:#31475b;color:#e9c6c6;font-weight:800}
 .flame{width:43px;height:25px;background:linear-gradient(#b9c9d7,#52667d);clip-path:polygon(17% 0,83% 0,100% 75%,68% 100%,32% 100%,0 75%);border-radius:0 0 10px 10px}
 .fins{position:absolute;bottom:6px;width:188px;height:40px;pointer-events:none}
@@ -105,6 +117,15 @@ footer{font-size:10px;color:#93b6cc;line-height:1.5;margin-top:10px}.desktop-not
     <div class="stat"><span>INITIAL ACCELERATION</span><strong id="accStat">—</strong></div>
     <div class="stat"><span>WET MASS</span><strong id="massStat">—</strong></div>
     <div class="stat"><span>CARGO / BAY CAPACITY</span><strong id="cargoStat">—</strong></div>
+   </div>
+   <div class="layout-section" aria-label="Module placement efficiency">
+      <div class="layout-head"><span>ASSEMBLY PLACEMENT</span><strong id="layoutScore">—</strong></div>
+      <div class="layout-metrics">
+        <div><span>FUEL SERVICING</span><strong id="layoutFuel">—</strong></div>
+        <div><span>CARGO HANDLING</span><strong id="layoutCargo">—</strong></div>
+      </div>
+      <div class="layout-top-tip" id="layoutAdvice">Move modules to improve ground and orbital service efficiency.</div>
+      <div class="layout-hint">Slot position affects handling and servicing only. It never changes Δv, thrust, acceleration, steering, or the flight trajectory. These operating bonuses will matter once the logistics systems are connected.</div>
    </div>
    <p id="warning" role="status" aria-live="polite">Ready to design.</p>
    <div class="actions">
@@ -198,12 +219,15 @@ function evaluate(){
  return SHIPS.evaluateDesign({...state,
   tanks:state.tanks.filter(Boolean),bays:state.bays.filter(Boolean)}, {technology:UNLOCKED});
 }
-function socket(slot,title){
+function socket(slot,title,layout){
  const part=slotValue(slot),meta=part?KNOWN[part]:null;
+ const position=layout?.slots?.[slot];
+ const label=position?' · '+position.position+' · '+position.percent.toFixed(1)+'%':'';
  return '<div class="socket '+(selection&&validSlot(selection.part,slot)?'selected':'')+'" data-slot="'+slot+
- '" role="button" tabindex="0" aria-label="'+title+': '+(meta?meta.name:'empty')+'">'+
+ '" role="button" tabindex="0" aria-label="'+title+': '+(meta?meta.name:'empty')+label+'">'+
  (meta?'<div class="filled" data-installed="'+part+'"><span class="part-icon">'+PART_SYMBOL[meta.type]+'</span><div>'+meta.name+
- '<small>'+title+'</small></div></div><button type="button" class="clear-slot" aria-label="Remove '+meta.name+'">×</button>':
+ '<small>'+title+' · '+position.position+'</small><span class="placement-tag '+(position.percent>=106?'good':position.percent<96?'suboptimal':'')+'">'+
+ position.percent.toFixed(1)+'% '+position.benefit+'</span></div></div><button type="button" class="clear-slot" aria-label="Remove '+meta.name+'">×</button>':
  '<span class="empty">'+title+'<br>DRAG MODULE HERE</span>')+'</div>';
 }
 function renderTray(){
@@ -217,11 +241,21 @@ function renderTray(){
  }).join('');
 }
 function render(){
- const frame=KNOWN[state.frame];$('frameName').textContent=frame.name.toUpperCase();
+ const frame=KNOWN[state.frame],layout=SHIPS.evaluateLayout(state);
+ $('frameName').textContent=frame.name.toUpperCase();
  $('frameSelect').value=state.frame;
- $('engineSocket').innerHTML=socket('engine:0','ENGINE');
- $('tankSockets').innerHTML=state.tanks.map((_,i)=>socket('tank:'+i,'TANK '+(i+1))).join('');
- $('baySockets').innerHTML=state.bays.map((_,i)=>socket('bay:'+i,'CARGO '+(i+1))).join('');
+ $('engineSocket').innerHTML=socket('engine:0','ENGINE',layout);
+ $('tankSockets').innerHTML=state.tanks.map((_,i)=>socket('tank:'+i,'TANK '+(i+1),layout)).join('');
+ $('baySockets').innerHTML=state.bays.map((_,i)=>socket('bay:'+i,'CARGO '+(i+1),layout)).join('');
+ $('layoutScore').textContent=layout.ok&&layout.overall!==null?layout.overall.toFixed(1)+'%':'—';
+ $('layoutFuel').textContent=layout.ok&&layout.fuelHandling!==null?layout.fuelHandling.toFixed(1)+'%':'—';
+ $('layoutCargo').textContent=layout.ok&&layout.cargoHandling!==null?layout.cargoHandling.toFixed(1)+'%':'—';
+ const improvable=layout.ok?Object.values(layout.slots).filter(m=>m.percent<108):[];
+ const first=improvable.length?improvable.reduce((a,b)=>a.percent<b.percent?a:b):null;
+ $('layoutAdvice').textContent=first?
+    KNOWN[first.part].name+': best '+first.bestPosition+' ('+first.reason+').'
+    :'All mounted modules have favorable placement.';
+
  renderTray();
  $('fuelRange').max=cap();$('fuelRange').value=state.fuelUnits;
  $('fuelLabel').textContent=state.fuelUnits.toFixed(1)+' / '+cap().toFixed(1)+' units';
@@ -334,7 +368,7 @@ for(const parent of [tray,rocket])parent.addEventListener('keydown',e=>{
  if(part){e.preventDefault();handleTapPart(part)}
  if(slot&&selection){e.preventDefault();place(selection.part,slot.dataset.slot,selection.origin)}
 });
-window.__shipBuilder={snapshot:()=>clone(state),evaluate,select,place,remove,setFuel,setCargo,reset,normal:normalized};
+window.__shipBuilder={snapshot:()=>clone(state),evaluate,layout:()=>SHIPS.evaluateLayout(state),select,place,remove,setFuel,setCargo,reset,normal:normalized};
 render();
 })();
 </script>
