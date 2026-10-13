@@ -27,6 +27,51 @@
  const fin=v=>typeof v==='number'&&Number.isFinite(v);
  const starterDesign=()=>({frame:'starter-frame',engine:'chemical-engine',
   tanks:['standard-tank'],bays:['cargo-pod'],fuelUnits:7,payload:{}});
+ // Mount position only affects non-flight operational efficiency. It is NOT
+ // used in delta-v, thrust, acceleration, drag, steering, or trajectory math.
+ // Slot zero is nearest the nose; the highest index is nearest the engine.
+ const POSITION_PREFERENCES=Object.freeze({
+  'compact-tank':Object.freeze({ideal:0,benefit:'Thermal protection',reason:'Forward mounting keeps a compact tank away from engine heat'}),
+  'standard-tank':Object.freeze({ideal:1,benefit:'Fuel servicing',reason:'Aft mounting shortens the service manifold for standard tanks'}),
+  'large-tank':Object.freeze({ideal:.5,benefit:'Access and insulation',reason:'Central mounting balances external servicing and thermal protection'}),
+  'cargo-pod':Object.freeze({ideal:0,benefit:'Cargo handling',reason:'Forward docking access speeds light-cargo transfers'}),
+  'bulk-container':Object.freeze({ideal:1,benefit:'Cargo handling',reason:'Aft handling access suits heavy containers'})
+ });
+ const mountPosition=(index,count)=>count<=1?.5:index/(count-1);
+ const slotLabel=(position)=>position<=.15?'FORWARD':position>=.85?'AFT':'MIDSHIP';
+ const mountScore=(position,ideal)=>Math.round((112-24*Math.abs(position-ideal))*10)/10;
+ function evaluateLayout(input){
+  if(!input||typeof input!=='object'||Array.isArray(input))return {ok:false,reason:'No spacecraft layout'};
+  const frame=PARTS[input.frame];
+  if(!frame||frame.type!=='frame')return {ok:false,reason:'Invalid frame'};
+  const slots={},groups={tank:[],bay:[]};
+  for(const [kind,list,mounts] of [['tank',input.tanks,frame.tankMounts],['bay',input.bays,frame.bayMounts]]){
+   if(!Array.isArray(list)||list.length>mounts)return {ok:false,reason:'Invalid '+kind+' sockets'};
+   for(let index=0;index<mounts;index++){
+    const partId=list[index];
+    if(partId===null||partId===undefined)continue;
+    const part=PARTS[partId],profile=POSITION_PREFERENCES[partId];
+    if(!part||part.type!==kind||!profile)return {ok:false,reason:'Invalid '+kind+' module'};
+    const position=mountPosition(index,mounts);
+    const percent=mountScore(position,profile.ideal);
+    const key=kind+':'+index;
+    const data={slot:key,part:partId,percent,position:slotLabel(position),
+      bestPosition:slotLabel(profile.ideal),benefit:profile.benefit,reason:profile.reason};
+    slots[key]=data;
+    groups[kind].push({percent,weight:kind==='tank'?part.fuelCapacity:part.cargoCapacity});
+   }
+  }
+  function groupAverage(items){
+   if(!items.length)return null;
+   const denominator=items.reduce((n,p)=>n+p.weight,0);
+   return Math.round(items.reduce((n,p)=>n+p.percent*p.weight,0)/denominator*10)/10;
+  }
+  const fuelHandling=groupAverage(groups.tank),cargoHandling=groupAverage(groups.bay);
+  const active=[fuelHandling,cargoHandling].filter(x=>x!==null);
+  return {ok:true,fuelHandling,cargoHandling,
+   overall:active.length?Math.round(active.reduce((a,b)=>a+b,0)/active.length*10)/10:null,
+   slots,notes:'Placement affects ground and station servicing only; no impact on flight physics'};
+ }
  const distinctErrors=xs=>[...new Set(xs)];
  function evaluateDesign(input,{technology=[]}={}){
   const issues=[];
@@ -96,5 +141,5 @@
    remainingDeltaV:stats.exhaustVelocity*Math.log((stats.dryMass+remaining)/stats.dryMass)};
  }
  return Object.freeze({SCHEMA_VERSION,MATERIAL_MASS,PARTS,PART_IDS:Object.freeze(ids),
-  starterDesign,evaluateDesign,previewBurn});
+  starterDesign,evaluateDesign,evaluateLayout,POSITION_PREFERENCES,previewBurn});
 });
