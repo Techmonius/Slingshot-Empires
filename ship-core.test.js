@@ -66,4 +66,32 @@ assert.deepEqual(ships.previewBurn(optimalFlight.stats,10,5),ships.previewBurn(b
 assert.equal(ships.evaluateLayout({...base,tanks:[null,null],bays:[]}).overall,null);
 assert.equal(ships.evaluateLayout({...base,tanks:['cargo-pod']}).ok,false);
 assert.equal(ships.evaluateLayout({...base,tanks:['standard-tank','standard-tank','standard-tank']}).ok,false);
+// Confirm both agreed operational outcomes: faster servicing AND fewer losses.
+// The exact rates are provisional, and no cargo or propellant moves here.
+const equipped={...ideal,payload:{ice:8}};
+const equippedSwap={...swapped,payload:{ice:8}};
+const quick=ships.projectService(equipped),slow=ships.projectService(equippedSwap);
+assert.equal(quick.ok,true);assert.equal(slow.ok,true);
+assert.ok(quick.fuel.minutes<slow.fuel.minutes,'Good layout shortens fuel turnaround');
+assert.ok(quick.fuel.lostUnits<slow.fuel.lostUnits,'Good layout preserves more propellant');
+assert.ok(quick.fuel.deliveredUnits>slow.fuel.deliveredUnits);
+assert.equal(quick.cargo.minutes,slow.cargo.minutes,'Same cargo mount is unaffected by tank position');
+assert.equal(quick.cargo.lostUnits,slow.cargo.lostUnits);
+for(const result of [quick,slow]){
+ for(const kind of ['fuel','cargo']){
+  const op=result[kind];
+  assert.ok(op.deliveredUnits<=op.amount,'Efficiency must not create resources');
+  assert.ok(op.lostUnits>=0&&op.lostUnits<=op.amount);
+  assert.ok(Math.abs(op.deliveredUnits+op.lostUnits-op.amount)<1e-9);
+  assert.ok(op.minutes>=0);
+ }
+}
+assert.equal(ships.projectService({...base,fuelUnits:0}).fuel.lostUnits,0);
+assert.equal(ships.projectService(base).cargo.lostUnits,0);
+assert.equal(ships.projectService({...base,tanks:[],fuelUnits:7}).ok,false);
+assert.equal(ships.projectService({...base,bays:[],payload:{ice:2}}).ok,false);
+for(const invalid of [NaN,Infinity,-1])assert.equal(ships.projectService(base,{fuelUnits:invalid}).ok,false);
+assert.equal(ships.projectService(base,{cargoUnits:1000001}).ok,false);
+assert.equal(ships.projectService(null).ok,false);
+assert.deepEqual(ships.evaluateDesign(equipped).stats,ships.evaluateDesign(equippedSwap).stats);
 console.log('Modular spacecraft regression tests passed.');
