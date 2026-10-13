@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Slingshot">
   <meta name="description" content="A tiny orbital strategy game. Aim, launch, and intercept moving worlds.">
-  <meta property="og:title" content="Slingshot Empires — Prototype 0.14.2">
+  <meta property="og:title" content="Slingshot Empires — Prototype 0.15">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -226,13 +226,38 @@
     .orbit-wait-status{font-size:9px;line-height:1.25;color:#9bcce6;margin:3px 0 0}
     .time-chip.holding{background:#286b62dd;color:#dcfff0;border:1px solid #66dab2}
     @media(max-height:720px){.orbit-wait-panel{margin-top:4px;padding:4px 6px}.orbit-wait-actions button{min-height:24px}}
+    .station-card-footer{flex-wrap:wrap}
+    .station-card-footer button:disabled{opacity:.45;cursor:not-allowed}
+    .planet-mine-dialog{width:min(500px,100%);max-height:min(82dvh,730px);overflow-y:auto;text-align:left;padding:15px}
+    .mine-heading{display:flex;justify-content:space-between;gap:8px;align-items:center}
+    .mine-heading h2{margin:0;font-size:19px}
+    .mine-back{min-height:33px;padding:5px 9px;border:1px solid #4d819d;border-radius:8px;background:#193651;color:#d8f4ff;font-size:11px;font-weight:750}
+    .mine-subhead{font-size:11px;line-height:1.5;color:#b7cee4;margin:7px 0 9px}
+    .mine-statline{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+    .mine-statline span{font-size:10px;color:#cce7fc;border:1px solid #35546d;background:#10263d;border-radius:6px;padding:4px 6px}
+    .mine-survey{background:#275e78;border:1px solid #78c0de;border-radius:9px;min-height:44px;font-size:12px;font-weight:850;color:#f0fbff;width:100%;margin:6px 0}
+    .mine-grid{display:grid;grid-template-columns:1fr;gap:8px}
+    .mine-deposit{border:1px solid #34556e;background:#10253b;border-radius:10px;padding:9px}
+    .mine-deposit-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;font-weight:850}
+    .mine-deposit-rate{font-size:10px;color:#97d8ec;font-weight:700;white-space:nowrap}
+    .mine-deposit-meta{font-size:10px;color:#9cbfd8;line-height:1.45;margin:5px 0}
+    .mine-reserve{height:5px;background:#29394b;border-radius:8px;overflow:hidden;margin:5px 0}
+    .mine-reserve>div{height:100%;background:linear-gradient(90deg,#58a8e4,#88ead4)}
+    .mine-deposit-foot{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:7px}
+    .mine-deposit-foot strong{font-size:11px;color:#f1f4e7}
+    .mine-deposit-foot button{min-width:108px;min-height:31px;padding:5px 9px;border:1px solid #4e8299;border-radius:7px;background:#204765;color:#e2faff;font-size:11px;font-weight:800}
+    .mine-deposit-foot button.running{border-color:#e7af7c;background:#513a36;color:#ffddae}
+    .mine-deposit-foot button:disabled{opacity:.38}
+    .mine-note{font-size:10px;color:#abc9df;line-height:1.5;margin:9px 0 0}
+    .mine-empty{font-size:11px;line-height:1.5;color:#a9c3dc}
+    @media(min-width:500px){.mine-grid{grid-template-columns:1fr 1fr}}
     @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
   </style>
 </head>
 <body>
 <div class="app">
   <header class="top">
-    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.14.2</span></div></div>
+    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.15</span></div></div>
     <div class="stats"><div class="stat">Shots <strong id="shotCount">0</strong></div><div class="stat">Wins <strong id="winCount">0</strong>/3</div></div>
   </header>
   <main class="arena" id="arena" aria-label="Interactive solar system. Drag outward from the blue home planet to aim a rocket.">
@@ -329,16 +354,28 @@
           <div class="station-card-title">AURORA <span id="stationAuroraStage">BLUEPRINT</span></div>
           <div class="station-card-progress"><div id="stationAuroraBar"></div></div>
           <div id="stationAuroraDescription" class="station-card-description">0 of 3 rocket deliveries</div>
-          <div class="station-card-footer"><span id="stationAuroraScore" class="station-card-score">NO STATION</span><button id="stationToAurora">PLAN FLIGHT</button></div>
+          <div class="station-card-footer"><span id="stationAuroraScore" class="station-card-score">NO STATION</span><button id="stationMineAurora" disabled>SURVEY / MINING</button><button id="stationToAurora">PLAN FLIGHT</button></div>
         </div>
         <div class="station-card">
           <div class="station-card-title">CINDER <span id="stationCinderStage">BLUEPRINT</span></div>
           <div class="station-card-progress"><div id="stationCinderBar"></div></div>
           <div id="stationCinderDescription" class="station-card-description">0 of 3 rocket deliveries</div>
-          <div class="station-card-footer"><span id="stationCinderScore" class="station-card-score">NO STATION</span><button id="stationToCinder">PLAN FLIGHT</button></div>
+          <div class="station-card-footer"><span id="stationCinderScore" class="station-card-score">NO STATION</span><button id="stationMineCinder" disabled>SURVEY / MINING</button><button id="stationToCinder">PLAN FLIGHT</button></div>
         </div>
       </div>
-      <p class="station-dialog-foot">Stations are persistent construction assets. The quality percentage represents planned orbital logistics efficiency; actual mining, fuel shipments, factories and routes will be added in subsequent versions. Only manually completed safe orbits count.</p>
+      <p class="station-dialog-foot">Three safe-orbit deliveries unlock planetary surveys and mining. Orbit quality will influence logistics when cargo routes are added. Only manually completed safe orbits count.</p>
+    </div>
+  </div>
+  <div class="shade" id="miningShade" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="mineTitle">
+    <div class="dialog planet-mine-dialog">
+      <div class="mine-heading"><h2 id="mineTitle">Planetary survey</h2><button id="mineBack" class="mine-back" aria-label="Return to station network">← STATIONS</button></div>
+      <p id="mineDescription" class="mine-subhead">Commission a station to survey a planet.</p>
+      <div class="mine-statline">
+        <span id="minePower">EXTRACTORS 0/2</span><span id="mineFuelStatus">FUEL SOURCE UNKNOWN</span><span id="mineStorage">STORAGE 0</span>
+      </div>
+      <button id="mineSurvey" class="mine-survey">SURVEY THE PLANET</button>
+      <div id="mineDeposits" class="mine-grid" hidden></div>
+      <p id="mineNote" class="mine-note">Production uses local time, with up to 6 hours of offline progress. Materials are stored on their planet until logistics routes exist.</p>
     </div>
   </div>
   <div class="shade" id="resultShade" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
