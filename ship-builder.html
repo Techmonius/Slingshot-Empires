@@ -47,6 +47,13 @@ header{display:flex;justify-content:space-between;gap:9px;align-items:start;marg
 .layout-metrics div{border:1px solid #39566b;background:#0e263b;padding:6px 7px;border-radius:7px}
 .layout-metrics span{display:block;color:#9cbdd1;font-size:9px}.layout-metrics strong{display:block;font-size:13px;margin-top:2px;font-variant-numeric:tabular-nums}
 .layout-hint{font-size:10px;color:#b3d0dc;line-height:1.4;margin-top:6px}
+.service-preview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:8px}
+.service-preview article{border:1px solid #37637a;background:#0b2538;border-radius:8px;padding:8px;min-width:0}
+.service-preview header{font-weight:850;font-size:10px;letter-spacing:.02em;color:#c4e8fa;margin:0 0 4px}
+.service-preview strong{font-size:15px;color:#baf9e0;font-variant-numeric:tabular-nums}
+.service-preview span{font-size:10px;line-height:1.5;color:#a8cbdc;display:block}
+.service-preview .service-zero{color:#91adbc}
+
 .layout-top-tip{font-size:10px;color:#a5f1d0;line-height:1.4}
 
 .clear-slot{position:absolute;right:2px;top:50%;transform:translateY(-50%);height:27px;width:22px;display:grid;place-items:center;padding:0;border:0;border-radius:5px;background:#31475b;color:#e9c6c6;font-weight:800}
@@ -128,7 +135,13 @@ footer{font-size:10px;color:#93b6cc;line-height:1.5;margin-top:10px}.desktop-not
         <div><span>CARGO HANDLING</span><strong id="layoutCargo">—</strong></div>
       </div>
       <div class="layout-top-tip" id="layoutAdvice">Move modules to improve ground and orbital service efficiency.</div>
-      <div class="layout-hint">Slot position affects handling and servicing only. It never changes Δv, thrust, acceleration, steering, or the flight trajectory. These operating bonuses will matter once the logistics systems are connected.</div>
+      <div class="service-preview">
+       <article><header>FUEL TURNAROUND</header><strong id="fuelServiceTime">—</strong>
+        <span id="fuelPreserved">—</span></article>
+       <article><header>CARGO HANDLING</header><strong id="cargoServiceTime">—</strong>
+        <span id="cargoPreserved">—</span></article>
+      </div>
+      <div class="layout-hint">Placement speeds loading and reduces estimated handling losses. These are provisional per-operation estimates using the fuel and cargo quantities above; no resources are currently spent. Flight movement, mass, Δv, thrust and acceleration remain unaffected by placement.</div>
    </div>
    <p id="warning" role="status" aria-live="polite">Ready to design.</p>
    <div class="actions">
@@ -265,6 +278,18 @@ function render(){
  $('layoutScore').textContent=layout.ok&&layout.overall!==null?layout.overall.toFixed(1)+'%':'—';
  $('layoutFuel').textContent=layout.ok&&layout.fuelHandling!==null?layout.fuelHandling.toFixed(1)+'%':'—';
  $('layoutCargo').textContent=layout.ok&&layout.cargoHandling!==null?layout.cargoHandling.toFixed(1)+'%':'—';
+ const operation=SHIPS.projectService(state);
+ const showService=(kind,timeId,preservationId)=>{
+  const item=operation.ok?operation[kind]:null;
+  $(timeId).textContent=item?item.minutes.toFixed(1)+' min':'—';
+  $(preservationId).textContent=item?
+   (item.amount===0?'No '+kind+' loaded':
+   'Keep '+item.deliveredUnits.toFixed(2)+' / '+item.amount.toFixed(2)+
+   ' units · estimated loss '+(item.lossRate*100).toFixed(2)+'%'):
+   'Install a '+(kind==='fuel'?'tank':'cargo bay')+' first';
+ };
+ showService('fuel','fuelServiceTime','fuelPreserved');
+ showService('cargo','cargoServiceTime','cargoPreserved');
  const improvable=layout.ok?Object.values(layout.slots).filter(m=>m.percent<108):[];
  const first=improvable.length?improvable.reduce((a,b)=>a.percent<b.percent?a:b):null;
  $('layoutAdvice').textContent=first?
