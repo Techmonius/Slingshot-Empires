@@ -37,7 +37,7 @@
   'cargo-pod':Object.freeze({ideal:0,benefit:'Cargo handling',reason:'Forward docking access speeds light-cargo transfers'}),
   'bulk-container':Object.freeze({ideal:1,benefit:'Cargo handling',reason:'Aft handling access suits heavy containers'})
  });
- const mountPosition=(index,count)=>count<=1?.5:index/(count-1);
+ const mountPosition=(index,count,kind)=>count<=1?(kind==='bay'?0:.5):index/(count-1);
  const slotLabel=(position)=>position<=.15?'FORWARD':position>=.85?'AFT':'MIDSHIP';
  const mountScore=(position,ideal)=>Math.round((112-24*Math.abs(position-ideal))*10)/10;
  function evaluateLayout(input){
@@ -52,7 +52,7 @@
     if(partId===null||partId===undefined)continue;
     const part=PARTS[partId],profile=POSITION_PREFERENCES[partId];
     if(!part||part.type!==kind||!profile)return {ok:false,reason:'Invalid '+kind+' module'};
-    const position=mountPosition(index,mounts);
+    const position=mountPosition(index,mounts,kind);
     const percent=mountScore(position,profile.ideal);
     const key=kind+':'+index;
     const data={slot:key,part:partId,percent,position:slotLabel(position),
