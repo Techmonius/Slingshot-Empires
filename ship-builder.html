@@ -226,8 +226,9 @@ function socket(slot,title,layout){
  return '<div class="socket '+(selection&&validSlot(selection.part,slot)?'selected':'')+'" data-slot="'+slot+
  '" role="button" tabindex="0" aria-label="'+title+': '+(meta?meta.name:'empty')+label+'">'+
  (meta?'<div class="filled" data-installed="'+part+'"><span class="part-icon">'+PART_SYMBOL[meta.type]+'</span><div>'+meta.name+
- '<small>'+title+' · '+position.position+'</small><span class="placement-tag '+(position.percent>=106?'good':position.percent<96?'suboptimal':'')+'">'+
- position.percent.toFixed(1)+'% '+position.benefit+'</span></div></div><button type="button" class="clear-slot" aria-label="Remove '+meta.name+'">×</button>':
+ '<small>'+title+(position?' · '+position.position:'')+'</small>'+
+ (position?'<span class="placement-tag '+(position.percent>=106?'good':position.percent<96?'suboptimal':'')+'">'+
+ position.percent.toFixed(1)+'% '+position.benefit+'</span>':'')+'</div></div><button type="button" class="clear-slot" aria-label="Remove '+meta.name+'">×</button>':
  '<span class="empty">'+title+'<br>DRAG MODULE HERE</span>')+'</div>';
 }
 function renderTray(){
