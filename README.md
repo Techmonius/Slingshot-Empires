@@ -2,6 +2,17 @@
 
 Live game: https://techmonius.github.io/Slingshot-Empires/
 
+## v0.16 prototype — 2D modular shipyard (not part of installed game yet)
+
+[Open the independent spacecraft assembly prototype](./ship-builder.html) or go directly to `https://techmonius.github.io/Slingshot-Empires/ship-builder.html`. This is **development work**, not a v0.16 release; `index.html`, `release.json`, and the offline cache remain on v0.15.
+
+- **Confirmed player design:** Modular ships through research; **a 2D drag-and-drop builder** rather than full 3D rocket construction. Drag a component from a part tray onto a compatible attachment socket in the rocket's frame. For iPhone accessibility, tapping a part then a socket also works. Installed tank modules can be rearranged or exchanged between compatible slots, and parts can be removed.
+- Prototype Courier Frame has two tank sockets, one cargo-bay socket, and one engine socket. The catalog includes a starter chemical engine, compact/standard tanks and a cargo pod; bigger modules and alternative propulsion are visible but **research locked**. Attachment count/capacity limits come from `ship-core.js`.
+- Live engineering readouts update after every change: dry/wet mass, payload and bay capacity, thrust-based initial acceleration, and ideal rocket-equation available Δv. Player can adjust fuel load and test cargo material/quantity. All numerical values are **provisional gameplay balance numbers**.
+- Failed assembly checks show warnings and block saving an invalid blueprint. Clicking **SAVE TEST BLUEPRINT** preserves the prototype configuration in `slingshot-shipyard-prototype-v016`, an entirely separate browser key that does **not** modify `slingshot-flight-lab-v04`, stations, grade history or mined stockpiles.
+- The builder is a **design-only preview**: no usable cargo ships, docking, module costs, production recipes, launches, route automation, or completed v0.16 game release are implied. True ship-flight integration remains a later development phase after design sign-off.
+- Early regression tests check drag/drop and tap replace, compatible mounts, part removal, locked modules, variable payload/fuel tradeoffs, save/reload, and separation from the v0.15 update path. Standalone math tests run with `node ship-core.test.js` and `node cargo-core.test.js`.
+
 ## v0.15 — surveyed planets, multi-resource mining, and persistent stockpiles
 
 The first planetary economy layer is implemented **behind completed orbital stations**:
