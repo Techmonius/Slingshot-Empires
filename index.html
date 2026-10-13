@@ -675,6 +675,7 @@ function updateStationUI(){
  }
 }
 function openStationDashboard(){
+ holdPointer=null;holdOrigin=null;holdDouble=false;
  if(phase==='flying'&&!paused){paused=true;setPanelCollapsed(false);updateControls();}
  updateStationUI();
  $('stationShade').classList.add('show');
@@ -991,6 +992,12 @@ function zoomMap(factor,anchorX=view.width/2,anchorY=view.height/2){
 }
 function worldToScreen(x,y){return {x:camera.cx+(x-camera.x)*camera.scale,y:camera.cy+(y-camera.y)*camera.scale}}
 function screenToWorld(x,y){return {x:(x-camera.cx)/camera.scale+camera.x,y:(y-camera.cy)/camera.scale+camera.y}}
+function orbitProjectedScreen(r){
+ if(!r||!localEncounter||target==='star')return worldToScreen(r.x,r.y);
+ // Planet-centered display at simT, applied to a future maneuver state at r.t.
+ const futurePlanet=getBody(target,r.t),nowPlanet=getBody(target,simT);
+ return worldToScreen(nowPlanet.x+r.x-futurePlanet.x,nowPlanet.y+r.y-futurePlanet.y);
+}
 
 function lineCircle(x,y,r,color,width=1,dashes=[]){ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.setLineDash(dashes);ctx.stroke();ctx.setLineDash([])}
 function textLabel(text,x,y,color='#c8dcf8',size=11,weight=700,alignment='center'){
@@ -1114,7 +1121,7 @@ function render(){
    if(localEncounter&&paused&&target!=='star'){
     const upcoming=burnPreview?.base||rocket;
     const future=orbitWait>0&&burnPreview?.base;
-    const aimPos=future?worldToScreen(upcoming.x,upcoming.y):s;
+    const aimPos=future?orbitProjectedScreen(upcoming):s;
     if(future){
      ctx.save();ctx.strokeStyle='#d6f9ff';ctx.lineWidth=1.7;ctx.setLineDash([3,4]);
      ctx.beginPath();ctx.arc(aimPos.x,aimPos.y,9,0,TAU);ctx.stroke();ctx.setLineDash([]);
@@ -1162,7 +1169,7 @@ canvas.addEventListener('pointerdown',e=>{
  if(canvas.setPointerCapture)canvas.setPointerCapture(e.pointerId);
  if(pointers.size>=2){
   dragging=false;burnDragging=false;pointerId=null;panPointer=null;panLast=null;
-  holdPointer=null;holdOrigin=null;holdDouble=false;
+  holdPointer=null;holdOrigin=null;holdDouble=false;updateControls();
   suppressSingle=true;
   const [p1,p2]=[...pointers.values()].slice(0,2);
   pinch={dist:Math.max(1,Math.hypot(p2.x-p1.x,p2.y-p1.y)),x:(p1.x+p2.x)/2,y:(p1.y+p2.y)/2};
@@ -1174,7 +1181,7 @@ canvas.addEventListener('pointerdown',e=>{
   if(localEncounter&&paused&&rocket&&target!=='star'){
    const planned=paused?plannedOrbitState():{state:rocket,safe:true};
    const aim=planned.safe?planned.state:rocket;
-   const ship=worldToScreen(aim.x,aim.y);
+   const ship=orbitProjectedScreen(aim);
    if(distance(x,y,ship)<Math.max(35,7*currentMap().zoom+25)){
     burnDragging=true;pointerId=e.pointerId;e.preventDefault();return;
    }
@@ -1222,7 +1229,7 @@ canvas.addEventListener('pointermove',e=>{
  const {x,y}=pt;
  if(burnDragging&&phase==='flying'&&localEncounter&&paused&&rocket){
   const upcoming=burnPreview?.base||rocket;
-  const ship=worldToScreen(upcoming.x,upcoming.y),dx=x-ship.x,dy=y-ship.y,dist=Math.hypot(dx,dy);
+  const ship=orbitProjectedScreen(upcoming),dx=x-ship.x,dy=y-ship.y,dist=Math.hypot(dx,dy);
   if(dist>4)burnAngle=CLAMP(Math.round(orbitBurnAngleFromHeading(upcoming,target,Math.atan2(dy,dx))*10)/10,-180,180);
   burnPower=Math.round(CLAMP(dist/Math.max(65,Math.min(view.width,view.height)*.30)*20,0,Math.min(20,fuel))*100)/100;
   updateControls();
@@ -1269,9 +1276,9 @@ for(const [id,dt] of [['orbitWaitMinusTen',-10],['orbitWaitMinusOne',-1],['orbit
 $('orbitWaitGo').addEventListener('click',waitToOrbitTime);
 $('waitPeri').addEventListener('click',()=>waitToApsis('peri'));
 $('waitApo').addEventListener('click',()=>waitToApsis('apo'));
-$('coastButton').addEventListener('click',()=>{if(phase==='flying'){if(warpTarget)stopWarp();else{paused=!paused;setPanelCollapsed(!paused);updateControls()}}});
+$('coastButton').addEventListener('click',()=>{if(phase==='flying'){if(warpTarget)stopWarp();else{paused=!paused;if(!paused){orbitWait=0;orbitForecastCache=null}holdPointer=null;holdOrigin=null;holdDouble=false;setPanelCollapsed(!paused);updateControls()}}});
 $('togglePath').addEventListener('click',()=>{showPath=!showPath;$('togglePath').classList.toggle('selected',showPath);$('togglePath').setAttribute('aria-pressed',String(showPath));updateControls()});
-$('pauseButton').addEventListener('click',()=>{if(phase==='flying'){if(warpTarget)stopWarp();else{paused=!paused;setPanelCollapsed(!paused);updateControls()}}});
+$('pauseButton').addEventListener('click',()=>{if(phase==='flying'){if(warpTarget)stopWarp();else{paused=!paused;if(!paused){orbitWait=0;orbitForecastCache=null}holdPointer=null;holdOrigin=null;holdDouble=false;setPanelCollapsed(!paused);updateControls()}}});
 for(const id of ['aurora','cinder','star'])$('mission'+id[0].toUpperCase()+id.slice(1)).addEventListener('click',()=>chooseTarget(id));
 $('stationButton').addEventListener('click',openStationDashboard);
 $('stationClose').addEventListener('click',closeStationDashboard);
