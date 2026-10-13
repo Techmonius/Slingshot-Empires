@@ -35,6 +35,17 @@ Project north star: an iPhone-friendly orbital engineering and exploration game 
 - Starter rig assignments are currently free and can be reallocated; **fuel import, shipping, resource consumption, factories and chemical processing remain future work**.
 - Later planets and moons should continue the multi-resource rule, add new extraction constraints, power generation and strategic fuel scarcity without making resource richness depend on orbital efficiency.
 
+### v0.16 — Industry, Cargo and Research (in progress; design decisions being confirmed)
+
+**Cargo strategy decision confirmed:** Hybrid logistics. **Early flights use separately piloted surface → orbit and orbit → orbit transfer legs**, with a separate orbit → surface unloading leg where surface delivery is needed. Future technologies may unlock **direct surface-to-surface rockets**, without deleting orbital station routes.
+
+- **Home** will be the primary R&D and advanced-manufacturing hub; other planets can run basic local material-processing chemistry. Survey/research information can travel freely; physical resources must be carried in actual cargo inventories.
+- Current implementation groundwork: `cargo-core.js` with six distinct world/location nodes (Home, Aurora, Cinder × surface/orbit), separate planetary surface inventories (existing `mines.stock`) and orbital holds, a Home research-hub inventory, pure route-leg validation and payload/source-inventory checks. No cargo actually moves yet; no route becomes proven simply by being planned.
+- **All first-time cargo legs remain manually piloted.** Once a successful route has been proven in-game, v0.17 can automate repeat shipments. Later improved manually flown missions can enhance the proven route, subject to fuel, inventories, and launch windows.
+- Full cargo spacecraft assembly, fuel accounting, rocket payload rules, a starter Home orbital station, and unloading/docking details still need user design decisions. `cargo-core.js` is not yet wired into the shipped `index.html` and has **no effect on gameplay in v0.15**.
+- The first meaningful manufacturing goals will require physical resources from multiple worlds and unlock qualitatively new capabilities (staging, docking, fuel processing, spacecraft configuration), rather than just numeric efficiency modifiers.
+- Unit tests can be run with `node cargo-core.test.js`. Do not activate auto-updating release.json before the first player-facing cargo milestone is ready.
+
 ### Proposed v0.16 — Crafting, processing and research seed
 
 - Multi-input manufacturing recipes; early examples: ore → refined material → structural component → station/module/rocket part.
@@ -57,7 +68,7 @@ Project north star: an iPhone-friendly orbital engineering and exploration game 
 
 ## Open questions, not blockers for v0.14
 
-- Primary science architecture: single capital hub, distributed labs, or hybrid? Current lean: hybrid manufacturing/research hub with exploration-gated discoveries.
+- Confirmed research architecture: Home is the research and advanced-manufacturing capital, with basic processing distributed among colonies; advanced discoveries can be exploration-gated.
 - Whether station quality ultimately weights the best three modules, all installed modules with diminishing returns, or orbit-dependent placement and maintenance costs.
 - How to represent physical station docking/individual module orbit data rather than a representative station symbol.
 - How many surface tiles/building slots are appropriate for mobile; how much direct factory-layout control versus higher-level crafting puzzles.
