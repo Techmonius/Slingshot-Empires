@@ -1,6 +1,26 @@
-# Slingshot Empires — Flight Lab v0.14.2
+# Slingshot Empires — Flight Lab v0.15
 
 Live game: https://techmonius.github.io/Slingshot-Empires/
+
+## v0.15 — surveyed planets, multi-resource mining, and persistent stockpiles
+
+The first planetary economy layer is implemented **behind completed orbital stations**:
+
+- A planet must first receive **three manually completed safe-orbit rocket deliveries**, as in v0.14. The station dashboard now enables **SURVEY PLANET** at commissioned stations; other planets have mining locked. Existing completed stations from prior saves work.
+- A one-time, persistent **planetary survey** reveals **three independently extractable deposits per planet**, their reserves, relative production rates, and potential manufacturing roles. Each planet's resource composition is fixed for this stage rather than procedurally generated.
+- Commissioning a station grants access to a **two-extractor operating budget** per planet. The player chooses which two deposits to mine, and may stop/reassign extractors without rebuilding the station. The two-extractor cap is intended to create early decisions between resources, not yet a full power/industrial infrastructure simulator.
+- Ore/ice/chemicals accumulate in **local stockpiles** at real-time rates. Each resource has a **finite initial deposit**, and local inventory holds **up to 400 units per resource**. Mining stalls at depletion or full storage. Outputs do not automatically leave their planet.
+- Mineral production persists while the app is closed, **capped at 6 hours per revisit**. Offline accrual never silently exceeds reserves or storage capacity. Extra production beyond those limits is discarded, not banked. No battery-draining background task is required.
+- **Aurora:** Water Ice (2.20 units/min; 1,000 reserves), Silicon Ore (1.40/min; 650), Helium-3 (0.42/min; 230). Ice and rare volatiles are **fuel precursors**, not useable rocket propellant until fuel processing is unlocked.
+- **Cinder:** Iron Ore (2.50/min; 1,000), Copper Ore (1.60/min; 720), Sulfur (0.85/min; 430). **No locally mineable fuel feedstock**: it will need fuel imported for future launches and logistical operations.
+- The station dashboard has a new entry for each commissioned planet. The surface-operations panel displays fuel availability, production rates, extractor assignments, finite reserves, and inventory. It lives in an overlay rather than shrinking the flight map.
+- Mining state (`mines`) is added to the **existing** `slingshot-flight-lab-v04` save record. Older saves initialize unlocked/locked deposits safely, preserving all previous station deliveries, orbit scores, grades, shots and wins. Existing successful planetary missions are unchanged.
+
+**Boundary of v0.15:** There are no fuel refineries, cargo rockets, interplanetary inventories, factories, spendable resource recipes, transport routes or research unlocks yet. The player's current flight rocket still uses its original built-in fuel allowance, not planetary stockpiles. Building/switching the two starter extractors currently costs no materials. Mining isn't affected by orbital grade; that grade will affect future **logistical efficiency**, not resource abundance.
+
+**Test coverage:** Completed 3 Cinder deliveries to unlock mining, verified survey locks, two-extractor budget, switched iron/copper/sulfur extractors, measured real-time output, capped twelve hours away to six hours of mining, tested depletion/storage caps, saved/reopened the mines, migrated an older station-only save, checked both planet fuel flags, and kept manual orbital flight mechanics unchanged.
+
+Next: v0.16 introduces **real resource consumption, refining/crafting and research**, with recipes that create qualitatively new choices rather than just percentage boosts. Persistent cargo routes and fuel imports will follow once processed goods and material inventories have practical demand.
 
 ## v0.14.2 — hold-to-accelerate travel and timed orbital burns
 
