@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#091527">
+<meta name="robots" content="noindex">
+<title>Slingshot Empires · Shipyard prototype</title>
+<style>
+:root{color-scheme:dark;--ink:#e7f5ff;--muted:#a1bed3;--edge:#375975;--accent:#88edd0;--bg:#091527;--surface:#10283e}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink);background:radial-gradient(ellipse at 50% 0,#1c3850 0,#0a1a2d 55%,#071120 100%)}
+button,input,select{font:inherit}button{color:inherit;cursor:pointer}button:focus-visible,.socket:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+a{color:#a9e7ff}.shell{max-width:1100px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 13px) 13px calc(env(safe-area-inset-bottom,0px) + 22px)}
+header{display:flex;justify-content:space-between;gap:9px;align-items:start;margin-bottom:10px}
+.brand{font-size:10px;letter-spacing:.18em;color:#91d9e9;font-weight:850}.headline{font-size:clamp(20px,5vw,29px);font-weight:900;line-height:1.12;margin:3px 0 4px}
+.kicker{font-size:11px;color:#b6d0e5;line-height:1.4}.prototype{font-size:10px;font-weight:850;color:#ffdaa7;border:1px solid #907c59;background:#4e3b2b;padding:6px 8px;border-radius:10px;white-space:nowrap}
+.builder{display:grid;grid-template-columns:minmax(0,1fr);gap:11px}.panel{border:1px solid #34536f;border-radius:14px;background:#0d2136d9;box-shadow:0 10px 40px #0004;min-width:0}
+.panel-title{font-weight:900;font-size:12px;letter-spacing:.08em;color:#d5edff;margin-bottom:6px}.panel-pad{padding:11px}.secondary{color:var(--muted);font-size:11px;line-height:1.4}
+.stage{min-height:398px;display:flex;flex-direction:column;align-items:center;position:relative;overflow:hidden;padding:12px 8px 8px;
+ background:radial-gradient(ellipse at 50% 38%,#173c56a0 0,transparent 52%),linear-gradient(135deg,#10243d,#091b2d)}
+.stage::before{content:"";position:absolute;inset:0;background:linear-gradient(#ffffff0d 1px,transparent 1px),linear-gradient(90deg,#ffffff0d 1px,transparent 1px);background-size:26px 26px;opacity:.32;pointer-events:none}
+.scene-note{z-index:1;align-self:stretch;font-size:10px;color:#88adcc;display:flex;justify-content:space-between;gap:6px}
+.rocket{position:relative;width:190px;min-height:327px;display:flex;align-items:center;flex-direction:column;margin:10px 0;z-index:1;filter:drop-shadow(0 0 21px #7bc7e51b)}
+.nose{width:82px;height:53px;background:linear-gradient(110deg,#426782,#afcee3 49%,#42637c);clip-path:polygon(50% 0,100% 100%,0 100%);border-radius:5px 5px 0 0;position:relative}
+.nose::after{content:"";position:absolute;left:35px;top:22px;width:12px;height:15px;border-radius:90% 90% 40% 40%;background:#7ef8ed}
+.frame-body{width:146px;padding:10px 8px 9px;background:linear-gradient(90deg,#54768f 0,#b6d7e8 17%,#6c8da4 45%,#b8d5e5 75%,#466681 100%);
+ border:3px solid #d4f1ff66;border-radius:8px;box-shadow:inset 0 1px 17px #102d4b77;min-height:215px;display:flex;flex-direction:column;gap:6px;justify-content:center}
+.frame-label{color:#173047;text-align:center;font-size:9px;font-weight:900;letter-spacing:.15em}
+.socket{position:relative;display:flex;align-items:center;justify-content:center;min-height:53px;width:100%;border-radius:8px;border:2px dashed #3c6789;background:#0b2037d9;color:#dcefff;
+ padding:3px 20px 3px 5px;touch-action:manipulation;transition:background .1s,border-color .1s;cursor:pointer}
+.socket[data-kind="tank"]{min-height:49px}.socket[data-kind="engine"]{min-height:57px}
+.socket.drop-valid{border-color:#85f9d5;background:#1b766696;box-shadow:0 0 0 2px #68d5b540}
+.socket.drop-invalid{border-color:#ed8c9c;background:#7d314b77}
+.socket.selected{outline:2px solid #aee9ff;outline-offset:2px}
+.empty{font-size:10px;line-height:1.25;opacity:.85;text-align:center}.filled{display:flex;align-items:center;gap:6px;font-weight:800;font-size:11px;line-height:1.18;text-align:left;min-width:0}
+.filled .part-icon{min-width:27px;height:27px;background:#26445f;border-radius:6px;display:grid;place-items:center;font-size:18px;touch-action:none}
+.filled small{display:block;font-size:9px;color:#a4c7df;margin-top:2px;font-weight:600}
+.clear-slot{position:absolute;right:2px;top:50%;transform:translateY(-50%);height:27px;width:22px;display:grid;place-items:center;padding:0;border:0;border-radius:5px;background:#31475b;color:#e9c6c6;font-weight:800}
+.flame{width:43px;height:25px;background:linear-gradient(#b9c9d7,#52667d);clip-path:polygon(17% 0,83% 0,100% 75%,68% 100%,32% 100%,0 75%);border-radius:0 0 10px 10px}
+.fins{position:absolute;bottom:6px;width:188px;height:40px;pointer-events:none}
+.fins::before,.fins::after{content:"";position:absolute;bottom:0;width:24px;height:48px;background:#517a99;border:1px solid #92bacc;clip-path:polygon(100% 0,100% 100%,0 100%)}
+.fins::before{left:17px}.fins::after{right:17px;transform:scaleX(-1)}
+.tray{padding:11px}.tray-head{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.tray-items{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}
+.part{min-height:61px;display:flex;align-items:center;gap:7px;border:1px solid #416e8f;background:#19344d;border-radius:10px;padding:8px;text-align:left;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab}
+.part-icon{font-size:23px;flex:none}.part strong{font-size:11px;display:block;line-height:1.2}.part small{display:block;font-size:9px;color:#a6c4dc;line-height:1.3;margin-top:3px}
+.part.selected{border-color:#b4fce6;background:#245967;box-shadow:inset 0 0 0 1px #72d9c0}
+.part.locked{opacity:.47;cursor:not-allowed}.part:active{cursor:grabbing}
+.tip{font-size:10px;color:#9dbcd5;line-height:1.4;min-height:23px}
+.frame-row,.input-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:7px 0}
+.frame-row select,.input-row select,.input-row input[type=number]{font-size:12px;max-width:155px;background:#102b42;border:1px solid #50748b;color:#eaf7ff;border-radius:7px;min-height:34px;padding:5px}
+label{font-weight:750;font-size:11px}.fuel-wrap{margin:11px 0}input[type=range]{width:100%;accent-color:#7ce7c6}
+.grid-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:8px}
+.stat{padding:8px 10px;background:#132f46;border:1px solid #395b73;border-radius:9px}.stat span{font-size:9px;color:#abc7da;display:block}.stat strong{font-size:18px;font-variant-numeric:tabular-nums}
+#warning{border-left:3px solid #7ce4c1;color:#b5f2db;background:#183b41;padding:8px 10px;border-radius:6px;margin:9px 0 2px;font-size:11px;line-height:1.45}
+#warning.error{border-color:#ff8f9e;background:#402937;color:#ffe2dc}
+.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.actions button,.payload-add{background:#235372;border:1px solid #5a94b4;border-radius:8px;font-weight:800;font-size:11px;padding:8px 10px;min-height:37px}
+.actions .clear-all{background:#312d42;border-color:#72647d}
+.payload-list{font-size:10px;line-height:1.5;color:#a8e8d8;margin:5px 0}
+.drag-ghost{position:fixed;z-index:40;pointer-events:none;left:0;top:0;transform:translate(-50%,-50%);padding:11px 15px;background:#24536ee9;border:2px solid #a7ecff;border-radius:10px;box-shadow:0 15px 30px #0008;font-weight:800;font-size:12px}
+footer{font-size:10px;color:#93b6cc;line-height:1.5;margin-top:10px}.desktop-note{display:none}
+@media(min-width:720px){.builder{grid-template-columns:minmax(275px,.95fr) minmax(320px,1.05fr);align-items:start}
+ .stage{min-height:530px}.rocket{margin-top:60px}.desktop-note{display:inline}.controls-area{display:grid;gap:11px}}
+@media(max-width:360px){.part{padding:6px;gap:5px}.part strong{font-size:10px}.part-icon{font-size:20px}.shell{padding-left:8px;padding-right:8px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header><div><div class="brand">SLINGSHOT EMPIRES · DEVELOPMENT YARD</div>
+<div class="headline">Spacecraft Assembly</div>
+<div class="kicker">Drag parts onto the 2D rocket, or tap a part and then a compatible socket.</div></div><span class="prototype">v0.16 TEST</span></header>
+<div class="builder">
+ <div class="panel stage">
+  <div class="scene-note"><span>ASSEMBLY BAY 01</span><span id="frameName">COURIER FRAME</span></div>
+  <div class="rocket" id="rocket">
+   <div class="nose"></div>
+   <div class="fins"></div>
+   <div class="frame-body" id="frameBody">
+    <div class="frame-label">CARGO</div><div id="baySockets"></div>
+    <div class="frame-label">PROPELLANT</div><div id="tankSockets"></div>
+    <div class="frame-label">PROPULSION</div><div id="engineSocket"></div>
+   </div><div class="flame"></div>
+  </div>
+  <div class="tip" id="stageTip">Tap a module or drag it into the rocket. Tap ✕ to remove an installed part.</div>
+ </div>
+ <div class="controls-area">
+  <section class="panel tray">
+   <div class="tray-head"><div class="panel-title">MODULE TRAY</div><span class="secondary">Unlocked parts are movable</span></div>
+   <div class="tray-items" id="partTray" aria-label="Available ship modules"></div>
+   <div class="frame-row"><label for="frameSelect">FRAME DESIGN</label>
+    <select id="frameSelect" aria-label="Choose spacecraft frame"><option value="starter-frame">Courier Frame</option><option value="cargo-frame" disabled>Freighter Frame · research locked</option></select></div>
+   <div class="tip">The frame determines available mounts. More designs unlock through research.</div>
+  </section>
+  <section class="panel panel-pad">
+   <div class="panel-title">LOADING &amp; ENGINEERING</div>
+   <div class="fuel-wrap"><div class="frame-row"><label for="fuelRange">PROPELLANT</label><strong id="fuelLabel">7.0 / 7.0 units</strong></div>
+    <input id="fuelRange" type="range" min="0" max="7" step="0.1" value="7" aria-label="Fuel load"></div>
+   <div class="input-row"><label for="cargoType">CARGO MATERIAL</label>
+    <select id="cargoType"><option value="ice">Water Ice</option><option value="silicon">Silicon Ore</option><option value="helium3">Helium-3</option><option value="iron">Iron Ore</option><option value="copper">Copper Ore</option><option value="sulfur">Sulfur</option></select></div>
+   <div class="input-row"><label for="cargoAmount">QUANTITY</label><input id="cargoAmount" type="number" min="0" max="100" step="1" value="4"></div>
+   <button id="setCargo" class="payload-add" type="button">SET CARGO AMOUNT</button>
+   <div id="cargoList" class="payload-list">No cargo loaded</div>
+   <div class="grid-stats">
+    <div class="stat"><span>AVAILABLE Δv</span><strong id="dvStat">—</strong></div>
+    <div class="stat"><span>INITIAL ACCELERATION</span><strong id="accStat">—</strong></div>
+    <div class="stat"><span>WET MASS</span><strong id="massStat">—</strong></div>
+    <div class="stat"><span>CARGO / BAY CAPACITY</span><strong id="cargoStat">—</strong></div>
+   </div>
+   <p id="warning" role="status" aria-live="polite">Ready to design.</p>
+   <div class="actions">
+    <button type="button" id="saveBlueprint">SAVE TEST BLUEPRINT</button>
+    <button type="button" id="resetBlueprint" class="clear-all">RESET SHIP</button>
+   </div>
+  </section>
+ </div>
+</div>
+<footer>This is a separate design prototype, not a flyable cargo ship yet. The numbers are provisional simulation balance values. Saved test blueprints use a separate browser key and do not change your v0.15 missions, resources, or stations. <a href="./">Return to game</a>.</footer>
+</div>
+<div class="drag-ghost" id="dragGhost" hidden></div>
+<script src="./ship-core.js"></script>
+<script>
+(function(){
+'use strict';
+const SHIPS=window.SlingshotShips;
+const $=id=>document.getElementById(id);
+const KEY='slingshot-shipyard-prototype-v016';
+const KNOWN=SHIPS.PARTS;
+const UNLOCKED=[]; // Research is not live yet.
+const PART_SYMBOL={engine:'🔥',tank:'◈',bay:'▣'};
+const LABEL={ice:'Water Ice',silicon:'Silicon Ore',helium3:'Helium-3',iron:'Iron Ore',copper:'Copper Ore',sulfur:'Sulfur'};
+const warn=(txt,error=false)=>{$('warning').textContent=txt;$('warning').classList.toggle('error',error)};
+const clone=o=>JSON.parse(JSON.stringify(o));
+const cap=()=>state.tanks.reduce((n,id)=>n+(KNOWN[id]?.fuelCapacity||0),0);
+function normalized(input){
+ const x=input&&typeof input==='object'?input:{},defaultShip=SHIPS.starterDesign();
+ const frame=KNOWN[x.frame]?.type==='frame'&&!KNOWN[x.frame].requires?x.frame:defaultShip.frame;
+ const f=KNOWN[frame];
+ const slots=(name,kind,count,initial)=>{
+  const source=Array.isArray(x[name])?x[name]:initial;
+  return Array.from({length:count},(_,i)=>{
+   const id=source[i];
+   return id&&KNOWN[id]?.type===kind&&!KNOWN[id].requires?id:null;
+  });
+ };
+ const tanks=slots('tanks','tank',f.tankMounts,[...defaultShip.tanks,null]);
+ const bays=slots('bays','bay',f.bayMounts,defaultShip.bays);
+ const engine=KNOWN[x.engine]?.type==='engine'&&!KNOWN[x.engine].requires?x.engine:(x.engine===null?null:defaultShip.engine);
+ const payload={};
+ if(x.payload&&typeof x.payload==='object'&&!Array.isArray(x.payload)){
+  for(const [id,n] of Object.entries(x.payload)){
+   if(Object.hasOwn(SHIPS.MATERIAL_MASS,id)&&typeof n==='number'&&Number.isFinite(n)&&n>0&&n<=1000000)payload[id]=n;
+  }
+ }
+ const maximum=tanks.reduce((n,id)=>n+(KNOWN[id]?.fuelCapacity||0),0);
+ const requested=typeof x.fuelUnits==='number'&&Number.isFinite(x.fuelUnits)?x.fuelUnits:defaultShip.fuelUnits;
+ return {frame,engine,tanks,bays,payload,fuelUnits:Math.min(maximum,Math.max(0,Math.round(requested*10)/10))};
+}
+function restore(){
+ try{return normalized(JSON.parse(localStorage.getItem(KEY)||'null'))}
+ catch{return normalized(null)}
+}
+let state=restore(),selection=null,gesture=null,feedback='';
+const slotValue=(slot)=>{
+ const [type,indexText]=slot.split(':');
+ if(type==='engine')return state.engine;
+ return state[type+'s']?.[+indexText]||null;
+};
+const slotType=slot=>slot.split(':')[0]==='engine'?'engine':slot.split(':')[0];
+const validSlot=(part,slot)=>!!KNOWN[part]&&!KNOWN[part].requires&&KNOWN[part].type===slotType(slot)&&(
+ slotType(slot)==='engine'||(+slot.split(':')[1]<state[slotType(slot)+'s'].length));
+function place(part,slot,origin=null){
+ if(!validSlot(part,slot)){warn('That part does not fit this attachment point.',true);return false}
+ const before=clone(state);
+ const [kind,n]=slot.split(':'),i=+n;
+ const previous=slotValue(slot);
+ if(origin&&origin!==slot){
+  if(!validSlot(part,origin)||slotValue(origin)!==part)return false;
+  const [fromKind,fromIndex]=origin.split(':');
+  if(fromKind==='engine')state.engine=previous||null;
+  else state[fromKind+'s'][+fromIndex]=previous||null;
+ }
+ if(kind==='engine')state.engine=part;
+ else state[kind+'s'][i]=part;
+ state.fuelUnits=Math.min(state.fuelUnits,cap());
+ if(JSON.stringify(before)===JSON.stringify(state)){render();return true}
+ selection=null;feedback=KNOWN[part].name+' attached';render();return true;
+}
+function remove(slot){
+ const part=slotValue(slot);
+ if(!part)return false;
+ const [kind,index]=slot.split(':');
+ if(kind==='engine')state.engine=null;
+ else state[kind+'s'][+index]=null;
+ state.fuelUnits=Math.min(state.fuelUnits,cap());
+ feedback=KNOWN[part].name+' removed';render();return true;
+}
+function evaluate(){
+ return SHIPS.evaluateDesign({...state,
+  tanks:state.tanks.filter(Boolean),bays:state.bays.filter(Boolean)}, {technology:UNLOCKED});
+}
+function socket(slot,title){
+ const part=slotValue(slot),meta=part?KNOWN[part]:null;
+ return '<div class="socket '+(selection&&validSlot(selection.part,slot)?'selected':'')+'" data-slot="'+slot+
+ '" role="button" tabindex="0" aria-label="'+title+': '+(meta?meta.name:'empty')+'">'+
+ (meta?'<div class="filled" data-installed="'+part+'"><span class="part-icon">'+PART_SYMBOL[meta.type]+'</span><div>'+meta.name+
+ '<small>'+title+'</small></div></div><button type="button" class="clear-slot" aria-label="Remove '+meta.name+'">×</button>':
+ '<span class="empty">'+title+'<br>DRAG MODULE HERE</span>')+'</div>';
+}
+function renderTray(){
+ $('partTray').innerHTML=SHIPS.PART_IDS.filter(id=>KNOWN[id].type!=='frame').map(id=>{
+  const p=KNOWN[id],locked=!!p.requires,active=selection?.part===id?'selected':'';
+  const stat=p.type==='engine'?'Exhaust '+p.exhaustVelocity+' · Thrust '+p.thrust:
+   p.type==='tank'?'Fuel +'+p.fuelCapacity:'Cargo +'+p.cargoCapacity;
+  return '<div class="part '+active+(locked?' locked':'')+'" role="button" tabindex="'+(locked?'-1':'0')+'" data-part="'+id+'" aria-disabled="'+locked+
+   '" aria-label="'+p.name+(locked?', research locked':'')+'"><span class="part-icon">'+PART_SYMBOL[p.type]+'</span><div><strong>'+p.name+'</strong><small>'+
+   (locked?'🔒 Research locked':stat)+'</small></div></div>';
+ }).join('');
+}
+function render(){
+ const frame=KNOWN[state.frame];$('frameName').textContent=frame.name.toUpperCase();
+ $('frameSelect').value=state.frame;
+ $('engineSocket').innerHTML=socket('engine:0','ENGINE');
+ $('tankSockets').innerHTML=state.tanks.map((_,i)=>socket('tank:'+i,'TANK '+(i+1))).join('');
+ $('baySockets').innerHTML=state.bays.map((_,i)=>socket('bay:'+i,'CARGO '+(i+1))).join('');
+ renderTray();
+ $('fuelRange').max=cap();$('fuelRange').value=state.fuelUnits;
+ $('fuelLabel').textContent=state.fuelUnits.toFixed(1)+' / '+cap().toFixed(1)+' units';
+ const payload=Object.entries(state.payload);
+ $('cargoList').textContent=payload.length?payload.map(([id,n])=>LABEL[id]+': '+n).join(' · '):'No cargo loaded';
+ const result=evaluate(),stats=result.stats;
+ $('dvStat').textContent=stats?stats.deltaV.toFixed(2):'—';
+ $('accStat').textContent=stats?stats.initialAcceleration.toFixed(2):'—';
+ $('massStat').textContent=stats?stats.wetMass.toFixed(2):'—';
+ $('cargoStat').textContent=stats?stats.cargoUnits.toFixed(0)+' / '+stats.cargoCapacity.toFixed(0):
+   Object.values(state.payload).reduce((a,b)=>a+b,0).toFixed(0)+' / '+state.bays.reduce((a,b)=>a+(KNOWN[b]?.cargoCapacity||0),0);
+ $('stageTip').textContent=selection?'Selected '+KNOWN[selection.part].name+' — tap a highlighted matching rocket socket.':'Drag a part onto a compatible socket, or tap a part then its socket.';
+ const note=result.ok?
+   (feedback?feedback+'. ':'')+'Flight stats updated. Rocket flight integration is coming later.':
+   result.issues.join(' · ');
+ warn(note,!result.ok);
+}
+function select(id,origin=null){
+ const p=KNOWN[id];
+ if(!p||p.requires){warn('This module must be unlocked through research.',true);return false}
+ selection={part:id,origin};feedback='';render();return true;
+}
+function setFuel(amount){const n=Number(amount);if(!Number.isFinite(n))return false;
+ state.fuelUnits=Math.min(cap(),Math.max(0,Math.round(n*10)/10));feedback='';render();return true}
+function setCargo(id,quantity){
+ if(!Object.hasOwn(SHIPS.MATERIAL_MASS,id))return false;
+ const n=Number(quantity);
+ if(!Number.isFinite(n)||n<0||n>1000000){warn('Enter a valid nonnegative cargo amount.',true);return false}
+ if(n===0)delete state.payload[id];else state.payload[id]=n;
+ feedback='';render();return true;
+}
+function reset(){state=normalized(null);selection=null;feedback='';render()}
+$('fuelRange').addEventListener('input',e=>setFuel(e.target.value));
+$('setCargo').addEventListener('click',()=>setCargo($('cargoType').value,$('cargoAmount').value));
+$('frameSelect').addEventListener('change',e=>{
+ const id=e.target.value;if(!KNOWN[id]||KNOWN[id].requires){e.target.value=state.frame;return}
+ state=normalized({...state,frame:id});render();
+});
+$('saveBlueprint').addEventListener('click',()=>{
+ if(!evaluate().ok){warn('Finish a valid rocket before saving its blueprint.',true);return}
+ try{localStorage.setItem(KEY,JSON.stringify(state));feedback='Test blueprint saved on this device';render()}
+ catch{warn('Could not save on this device.',true)}
+});
+$('resetBlueprint').addEventListener('click',()=>reset());
+const tray=$('partTray'),rocket=$('rocket');
+function handleTapPart(node){return select(node.dataset.part)}
+function partSource(ev){
+ const trayPart=ev.target.closest('[data-part]');
+ if(trayPart&&tray.contains(trayPart))return {part:trayPart.dataset.part,origin:null};
+ const installed=ev.target.closest('[data-installed]');
+ const parent=installed?.closest('[data-slot]');
+ if(installed&&parent&&rocket.contains(parent))return {part:installed.dataset.installed,origin:parent.dataset.slot};
+ return null;
+}
+function hoverZone(x,y){
+ const el=document.elementFromPoint(x,y)?.closest('[data-slot]');
+ return el&&rocket.contains(el)?el:null;
+}
+function clearHighlights(){
+ for(const el of rocket.querySelectorAll('.drop-valid,.drop-invalid'))el.classList.remove('drop-valid','drop-invalid');
+}
+function begin(ev){
+ if(ev.button!==undefined&&ev.button!==0)return;
+ if(ev.target.closest('.clear-slot'))return;
+ const source=partSource(ev);if(!source)return;
+ if(KNOWN[source.part]?.requires)return;
+ gesture={...source,id:ev.pointerId,startX:ev.clientX,startY:ev.clientY,moved:false};
+ ev.preventDefault();
+}
+function move(ev){
+ if(!gesture||gesture.id!==ev.pointerId)return;
+ if(!gesture.moved&&Math.hypot(ev.clientX-gesture.startX,ev.clientY-gesture.startY)<7)return;
+ gesture.moved=true;
+ const ghost=$('dragGhost');ghost.hidden=false;ghost.textContent=KNOWN[gesture.part].name;
+ ghost.style.left=ev.clientX+'px';ghost.style.top=ev.clientY+'px';
+ clearHighlights();
+ const slot=hoverZone(ev.clientX,ev.clientY);
+ if(slot)slot.classList.add(validSlot(gesture.part,slot.dataset.slot)?'drop-valid':'drop-invalid');
+ ev.preventDefault();
+}
+function finish(ev){
+ if(!gesture||gesture.id!==ev.pointerId)return;
+ const g=gesture;gesture=null;
+ $('dragGhost').hidden=true;clearHighlights();
+ if(g.moved){
+  const slot=hoverZone(ev.clientX,ev.clientY);
+  if(slot)place(g.part,slot.dataset.slot,g.origin);
+  else warn('Drop the module on a matching rocket attachment socket.',true);
+ }else select(g.part,g.origin);
+ ev.preventDefault();
+}
+for(const root of [tray,rocket])root.addEventListener('pointerdown',begin);
+window.addEventListener('pointermove',move,{passive:false});
+window.addEventListener('pointerup',finish);
+window.addEventListener('pointercancel',()=>{gesture=null;$('dragGhost').hidden=true;clearHighlights()});
+rocket.addEventListener('click',e=>{
+ if(e.target.closest('.clear-slot')){
+  const parent=e.target.closest('[data-slot]');if(parent)remove(parent.dataset.slot);return;
+ }
+ const sock=e.target.closest('[data-slot]');if(!sock||!selection)return;
+ place(selection.part,sock.dataset.slot,selection.origin);
+});
+for(const parent of [tray,rocket])parent.addEventListener('keydown',e=>{
+ if(e.key!=='Enter'&&e.key!==' ')return;
+ const part=e.target.closest('[data-part]'),slot=e.target.closest('[data-slot]');
+ if(part){e.preventDefault();handleTapPart(part)}
+ if(slot&&selection){e.preventDefault();place(selection.part,slot.dataset.slot,selection.origin)}
+});
+window.__shipBuilder={snapshot:()=>clone(state),evaluate,select,place,remove,setFuel,setCargo,reset,normal:normalized};
+render();
+})();
+</script>
+</body>
+</html>
