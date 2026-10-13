@@ -1,5 +1,5 @@
 {
-  "version": "0.14.1",
-  "displayVersion": "V0.14.1",
-  "notes": "Orbit heat bands and color-coded path previews, with compact Coast and Burn labels."
+  "version": "0.14.2",
+  "displayVersion": "V0.14.2",
+  "notes": "Press and hold the interplanetary map for double travel speed; plan future-time orbital burns with preview and automatic fuel-free coast."
 }
