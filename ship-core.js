@@ -72,6 +72,40 @@
    overall:active.length?Math.round(active.reduce((a,b)=>a+b,0)/active.length*10)/10:null,
    slots,notes:'Placement affects ground and station servicing only; no impact on flight physics'};
  }
+ // Provisional terminal-service model. Both outputs use the same mount score
+ // but are deliberately NOT applied to propulsion or orbit physics.
+ // Ground/port operations consume time and can lose handled resources; improved
+ // placement reduces BOTH. An efficiency >100 never creates extra resources.
+ const SERVICE_RATES=Object.freeze({
+  fuel:Object.freeze({minutesPerUnit:2.0,handlingLossRate:.03}),
+  cargo:Object.freeze({minutesPerUnit:1.5,handlingLossRate:.015})
+ });
+ function projectService(input,{fuelUnits,cargoUnits}={}){
+  const layout=evaluateLayout(input);
+  if(!layout.ok)return {ok:false,reason:layout.reason};
+  const amounts={fuel:fuelUnits===undefined?input?.fuelUnits:fuelUnits,
+   cargo:cargoUnits===undefined?(input?.payload&&typeof input.payload==='object'&&
+    !Array.isArray(input.payload)?Object.values(input.payload).reduce((sum,q)=>sum+q,0):0):cargoUnits};
+  if(!fin(amounts.fuel)||!fin(amounts.cargo)||amounts.fuel<0||amounts.cargo<0||
+     amounts.fuel>1000000||amounts.cargo>1000000)
+   return {ok:false,reason:'Invalid service quantities'};
+  const project=(kind,score,amount)=>{
+   if(score===null)return amount===0?{score:null,amount:0,minutes:0,lostUnits:0,
+      deliveredUnits:0,timeMultiplier:null,lossRate:null}:null;
+   const multiplier=100/score;
+   const rate=SERVICE_RATES[kind];
+   const minutes=amount*rate.minutesPerUnit*multiplier;
+   const lossRate=Math.min(1,rate.handlingLossRate*multiplier);
+   const lostUnits=amount*lossRate;
+   return {score,amount,minutes,lostUnits,
+    deliveredUnits:Math.max(0,amount-lostUnits),timeMultiplier:multiplier,lossRate};
+  };
+  const fuel=project('fuel',layout.fuelHandling,amounts.fuel),
+   cargo=project('cargo',layout.cargoHandling,amounts.cargo);
+  if(!fuel||!cargo)return {ok:false,reason:'Installed servicing capacity is missing'};
+  return {ok:true,fuel,cargo,overall:layout.overall,
+   disclaimer:'Preview only: no time or resources are consumed until cargo logistics are integrated'};
+ }
  const distinctErrors=xs=>[...new Set(xs)];
  function evaluateDesign(input,{technology=[]}={}){
   const issues=[];
@@ -141,5 +175,5 @@
    remainingDeltaV:stats.exhaustVelocity*Math.log((stats.dryMass+remaining)/stats.dryMass)};
  }
  return Object.freeze({SCHEMA_VERSION,MATERIAL_MASS,PARTS,PART_IDS:Object.freeze(ids),
-  starterDesign,evaluateDesign,evaluateLayout,POSITION_PREFERENCES,previewBurn});
+  starterDesign,evaluateDesign,evaluateLayout,projectService,SERVICE_RATES,POSITION_PREFERENCES,previewBurn});
 });
