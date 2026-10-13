@@ -854,7 +854,7 @@ function updateControls(){
  }
  $('launchButton').disabled=disable;$('launchButton').textContent=disable?'● IN FLIGHT':phase==='aiming'?'▶ LAUNCH ROCKET':'▶ FLY AGAIN';
  $('pauseButton').textContent=paused?'▶':'Ⅱ';$('pauseButton').title=paused?'Resume flight':'Pause flight';
- $('touchTip').textContent=phase==='aiming'?(target==='star'?'Aim to hit the star':'Drag HOME to aim · Pinch to zoom'):phase==='flying'?(localEncounter?(paused?'Drag rocket to aim · Pinch to zoom':'Pause to plan · Pinch to zoom'): 'Pinch to zoom · Drag empty space to pan'):'Pinch to zoom · Drag empty space to pan';
+ $('touchTip').textContent=phase==='aiming'?(target==='star'?'Aim to hit the star':'Drag HOME to aim · Pinch to zoom'):phase==='flying'?(localEncounter?(paused?'Drag rocket to aim · Pinch to zoom':'Pause to plan · Pinch to zoom'): 'Hold map for 2× travel · Drag to pan'):'Pinch to zoom · Drag empty space to pan';
  for(const id of ['aurora','cinder','star'])$('mission'+id[0].toUpperCase()+id.slice(1)).style.color=id===target?'#e5fbff':'#7fa3c2';
 }
 function chooseTarget(id){if(!MISSION[id])return;target=id;resetFlight();}
@@ -1112,18 +1112,27 @@ function render(){
   const s=worldToScreen(rocket.x,rocket.y);ctx.save();ctx.translate(s.x,s.y);ctx.rotate(Math.atan2(rocket.vy,rocket.vx)+PI/2);
   ctx.shadowColor='#7bdffe';ctx.shadowBlur=12;ctx.fillStyle='#e9fcff';ctx.beginPath();ctx.moveTo(0,-7);ctx.lineTo(4,5);ctx.lineTo(0,3);ctx.lineTo(-4,5);ctx.closePath();ctx.fill();ctx.restore();
    if(localEncounter&&paused&&target!=='star'){
-    const tangent=orbitBurnDirection(rocket,target,0),burnDir=orbitBurnDirection(rocket,target);
+    const upcoming=burnPreview?.base||rocket;
+    const future=orbitWait>0&&burnPreview?.base;
+    const aimPos=future?worldToScreen(upcoming.x,upcoming.y):s;
+    if(future){
+     ctx.save();ctx.strokeStyle='#d6f9ff';ctx.lineWidth=1.7;ctx.setLineDash([3,4]);
+     ctx.beginPath();ctx.arc(aimPos.x,aimPos.y,9,0,TAU);ctx.stroke();ctx.setLineDash([]);
+     textLabel('BURN T+'+upcoming.t.toFixed(1),aimPos.x,aimPos.y-19,'#d9f9ff',10,800);
+     ctx.restore();
+    }
+    const tangent=orbitBurnDirection(upcoming,target,0),burnDir=orbitBurnDirection(upcoming,target);
     if(tangent){
      const refLength=26;
-     ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x+tangent.x*refLength,s.y+tangent.y*refLength);
+     ctx.beginPath();ctx.moveTo(aimPos.x,aimPos.y);ctx.lineTo(aimPos.x+tangent.x*refLength,aimPos.y+tangent.y*refLength);
      ctx.setLineDash([3,4]);ctx.strokeStyle='rgba(121,233,184,.78)';ctx.lineWidth=1.7;ctx.stroke();ctx.setLineDash([]);
-     textLabel('PRO',s.x+tangent.x*(refLength+12),s.y+tangent.y*(refLength+12),'#8bebc1',9,800);
+     textLabel('PRO',aimPos.x+tangent.x*(refLength+12),aimPos.y+tangent.y*(refLength+12),'#8bebc1',9,800);
     }
     const a=burnDir?Math.atan2(burnDir.y,burnDir.x):0,arrow=burnPower>0?Math.min(80,25+burnPower*3):25;
-    const sx=s.x+Math.cos(a)*arrow,sy=s.y+Math.sin(a)*arrow;
+    const sx=aimPos.x+Math.cos(a)*arrow,sy=aimPos.y+Math.sin(a)*arrow;
     ctx.strokeStyle=burnPower>0?'#ffd28f':'#a8b9ca';ctx.fillStyle=ctx.strokeStyle;ctx.lineWidth=2.2;
     ctx.setLineDash(burnPower>0?[]:[3,4]);
-    ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(sx,sy);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(aimPos.x,aimPos.y);ctx.lineTo(sx,sy);ctx.stroke();ctx.setLineDash([]);
     ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx-8*Math.cos(a-.45),sy-8*Math.sin(a-.45));ctx.lineTo(sx-8*Math.cos(a+.45),sy-8*Math.sin(a+.45));ctx.closePath();ctx.fill();
    }
  }
@@ -1153,6 +1162,7 @@ canvas.addEventListener('pointerdown',e=>{
  if(canvas.setPointerCapture)canvas.setPointerCapture(e.pointerId);
  if(pointers.size>=2){
   dragging=false;burnDragging=false;pointerId=null;panPointer=null;panLast=null;
+  holdPointer=null;holdOrigin=null;holdDouble=false;
   suppressSingle=true;
   const [p1,p2]=[...pointers.values()].slice(0,2);
   pinch={dist:Math.max(1,Math.hypot(p2.x-p1.x,p2.y-p1.y)),x:(p1.x+p2.x)/2,y:(p1.y+p2.y)/2};
@@ -1162,12 +1172,16 @@ canvas.addEventListener('pointerdown',e=>{
  const {x,y}=pt;
  if(phase==='flying'){
   if(localEncounter&&paused&&rocket&&target!=='star'){
-   const ship=worldToScreen(rocket.x,rocket.y);
+   const planned=paused?plannedOrbitState():{state:rocket,safe:true};
+   const aim=planned.safe?planned.state:rocket;
+   const ship=worldToScreen(aim.x,aim.y);
    if(distance(x,y,ship)<Math.max(35,7*currentMap().zoom+25)){
     burnDragging=true;pointerId=e.pointerId;e.preventDefault();return;
    }
   }
-  panPointer=e.pointerId;panLast=pt;e.preventDefault();return;
+  panPointer=e.pointerId;panLast=pt;
+  if(!localEncounter&&!paused&&pointers.size===1){holdPointer=e.pointerId;holdOrigin=pt;holdDouble=true;updateControls()}
+  e.preventDefault();return;
  }
  if(phase==='aiming'){
   const home=orbitPos(PLANETS[0],waitTime),homeS=worldToScreen(home.x,home.y);
@@ -1197,14 +1211,19 @@ canvas.addEventListener('pointermove',e=>{
  }
  if(suppressSingle)return;
  if(panPointer===e.pointerId){
+  if(holdPointer===e.pointerId){
+   if(holdOrigin&&distance(pt.x,pt.y,holdOrigin)<9){e.preventDefault();return;}
+   holdPointer=null;holdOrigin=null;holdDouble=false;updateControls();
+  }
   if(panLast)panMap(pt.x-panLast.x,pt.y-panLast.y);
   panLast=pt;e.preventDefault();return;
  }
  if(pointerId!==e.pointerId||(!dragging&&!burnDragging))return;
  const {x,y}=pt;
  if(burnDragging&&phase==='flying'&&localEncounter&&paused&&rocket){
-  const ship=worldToScreen(rocket.x,rocket.y),dx=x-ship.x,dy=y-ship.y,dist=Math.hypot(dx,dy);
-  if(dist>4)burnAngle=CLAMP(Math.round(orbitBurnAngleFromHeading(rocket,target,Math.atan2(dy,dx))*10)/10,-180,180);
+  const upcoming=burnPreview?.base||rocket;
+  const ship=worldToScreen(upcoming.x,upcoming.y),dx=x-ship.x,dy=y-ship.y,dist=Math.hypot(dx,dy);
+  if(dist>4)burnAngle=CLAMP(Math.round(orbitBurnAngleFromHeading(upcoming,target,Math.atan2(dy,dx))*10)/10,-180,180);
   burnPower=Math.round(CLAMP(dist/Math.max(65,Math.min(view.width,view.height)*.30)*20,0,Math.min(20,fuel))*100)/100;
   updateControls();
  }else if(dragging&&phase==='aiming'){
@@ -1216,6 +1235,7 @@ canvas.addEventListener('pointermove',e=>{
 });
 for(const evt of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(evt,e=>{
  pointers.delete(e.pointerId);
+ if(e.pointerId===holdPointer){holdPointer=null;holdOrigin=null;holdDouble=false;updateControls()}
  if(e.pointerId===pointerId){dragging=false;burnDragging=false;pointerId=null}
  if(e.pointerId===panPointer){panPointer=null;panLast=null}
  if(pointers.size<2)pinch=null;
@@ -1261,6 +1281,8 @@ for(const id of STATION_PLANETS){
  });
 }
 $('dialogRetry').addEventListener('click',resetFlight);$('dialogNext').addEventListener('click',nextTarget);
+window.addEventListener('blur',()=>{holdPointer=null;holdOrigin=null;holdDouble=false;updateControls()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){holdPointer=null;holdOrigin=null;holdDouble=false}});
 window.addEventListener('resize',resize);
 if('ResizeObserver' in window)new ResizeObserver(resize).observe(arena);
 resize();setCamera();predict();updateControls();requestAnimationFrame(frame);
