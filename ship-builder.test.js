@@ -90,7 +90,18 @@ assert.ok(fresh.elem('tankSockets').innerHTML.includes('DROP FIT 112.0%'));
 assert.ok(fresh.elem('tankSockets').innerHTML.includes('DROP FIT 88.0%'));
 assert.equal(fresh.api.select('standard-tank'),true);
 assert.equal(fresh.api.place('standard-tank','tank:1','tank:0'),true);
+const initialFuelTime=fresh.elem('fuelServiceTime').textContent;
+const initialRetained=fresh.elem('fuelPreserved').textContent;
 const optimized=fresh.api.layout(),afterMove=fresh.api.evaluate().stats;
+assert.ok(parseFloat(fresh.elem('fuelServiceTime').textContent)<parseFloat(initialFuelTime));
+assert.ok(parseFloat(fresh.elem('fuelPreserved').textContent.match(/estimated loss ([0-9.]+)%/)[1])<
+ parseFloat(initialRetained.match(/estimated loss ([0-9.]+)%/)[1]));
+assert.ok(fresh.elem('cargoServiceTime').textContent.includes('0.0 min'));
+assert.ok(fresh.elem('cargoPreserved').textContent.includes('No cargo loaded'));
+assert.equal(fresh.api.setCargo('ice',8),true);
+assert.ok(parseFloat(fresh.elem('cargoServiceTime').textContent)>0);
+assert.ok(fresh.elem('cargoPreserved').textContent.includes('estimated loss'));
+
 assert.ok(optimized.overall>initial.overall);
 assert.ok(optimized.fuelHandling>initial.fuelHandling);
 assert.equal(optimized.cargoHandling,initial.cargoHandling);
