@@ -25,12 +25,15 @@ Project north star: an iPhone-friendly orbital engineering and exploration game 
 - Visible under-construction orbit indicator, operational orbital station marker, mission-progress line, station-network dashboard.
 - Store per-planet deliveries and top score contributions. Existing planet wins migrate as one prior delivery, not an invented three-mission station.
 
-### Proposed v0.15 — Survey and multi-resource mining
+### v0.15 — Survey and multi-resource mining (implemented)
 
-- Finished station unlocks planetary prospecting. Each planet/moon may have several mineral/gas/ice deposits with distinctive extraction constraints.
-- Local resources are *physical deposits*, not boosted ore abundance from orbit quality.
-- Build simple extractors and storage. Make fuel availability a resource property; most worlds should depend on imported fuel.
-- Keep mining disabled for worlds without a completed station.
+- A **commissioned three-rocket station** unlocks a one-time planetary survey and the surface operations screen.
+- Each current planet has three **finite physical deposits**, with individually persisted reserves, production rates, extractor assignments, and local inventory, and **two active extractors per planet**. No orbital-quality mining bonus.
+- **Aurora:** Water Ice, Silicon Ore, Helium-3. Ice and Helium-3 are **fuel precursors only** until later refining technology. **Cinder:** Iron Ore, Copper Ore, Sulfur, with **no local fuel source**.
+- Mining stockpiles accumulate on a real-time clock, with six hours of capped offline production and a per-resource 400-unit storage cap. Production halts when exhausted or full.
+- Mining/survey state migrates inside the old save key without resetting orbital grades or stations.
+- Starter rig assignments are currently free and can be reallocated; **fuel import, shipping, resource consumption, factories and chemical processing remain future work**.
+- Later planets and moons should continue the multi-resource rule, add new extraction constraints, power generation and strategic fuel scarcity without making resource richness depend on orbital efficiency.
 
 ### Proposed v0.16 — Crafting, processing and research seed
 
