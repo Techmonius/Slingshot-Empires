@@ -119,4 +119,51 @@ assert.ok(wellArranged.overall>poorlyArranged.overall);
 assert.equal(poorlyArranged.fuelHandling,88);
 for(const key of ['deltaV','wetMass','initialAcceleration','fuelCapacity','cargoCapacity'])
  assert.equal(goodFlight[key],badFlight[key],'Swapping modules must not change '+key);
+// Approved battery-first electrical subsystem and modular docking interface.
+const electricallyEquipped=create(),ed=electricallyEquipped.api;
+assert.equal(ed.snapshot().docking,'basic-docking-port');
+assert.equal(ed.snapshot().powerUnits,6);
+assert.equal(ed.evaluate().stats.batteryCapacity,6);
+assert.equal(ed.evaluate().stats.dockingInstalled,true);
+assert.equal(ed.dock().ok,true);
+assert.equal(ed.dock().cost,2);
+assert.equal(ed.dock().assistRadius,2.5);
+assert.ok(electricallyEquipped.elem('dockSocket').innerHTML.includes('Docking Coupler'));
+assert.ok(electricallyEquipped.elem('partTray').innerHTML.includes('Precision Docking System'));
+assert.ok(electricallyEquipped.elem('partTray').innerHTML.includes('Research locked'));
+const unchangedFuel=ed.snapshot().fuelUnits;
+assert.equal(ed.setPower(1),true);
+assert.equal(ed.dock().ok,false,'Insufficient electrical charge blocks docking');
+assert.equal(ed.evaluate().ok,true,'Low charge does not invalidate the basic spacecraft');
+assert.equal(ed.evaluate().stats.fuelLoaded,unchangedFuel,'Electrical charge must not spend main propellant');
+assert.ok(electricallyEquipped.elem('dockPowerStatus').textContent.includes('charge'));
+assert.equal(ed.setPower(2),true);
+assert.equal(ed.dock().ok,true);
+assert.equal(ed.select('precision-docking-port'),false,'Advanced precision docking stays research locked');
+assert.equal(ed.place('standard-tank','dock:0'),false,'Tank cannot fill docking socket');
+assert.equal(ed.remove('dock:0'),true);
+assert.equal(ed.snapshot().docking,null);
+assert.equal(ed.dock().ok,false,'Missing coupler blocks docking');
+assert.equal(ed.place('basic-docking-port','dock:0'),true);
+assert.equal(ed.dock().ok,true);
+assert.equal(ed.setPower(7),true);
+assert.equal(ed.snapshot().powerUnits,6,'Cannot charge beyond built-in battery capacity');
+// Existing prototype users must inherit starter equipment without deleting their designs.
+const legacy=create({'slingshot-shipyard-prototype-v016':JSON.stringify({
+ frame:'starter-frame',engine:'chemical-engine',tanks:['compact-tank','standard-tank'],
+ bays:['cargo-pod'],fuelUnits:9,payload:{iron:2}
+})});
+assert.equal(legacy.api.snapshot().docking,'basic-docking-port');
+assert.equal(legacy.api.snapshot().powerUnits,6);
+assert.deepEqual(legacy.api.snapshot().tanks,['compact-tank','standard-tank']);
+assert.equal(legacy.api.snapshot().payload.iron,2);
+// An intentional cargo craft without docking gear remains a valid build.
+const sansCoupler=create();
+assert.equal(sansCoupler.api.remove('dock:0'),true);
+assert.equal(sansCoupler.api.evaluate().ok,true);
+assert.equal(sansCoupler.api.dock().ok,false);
+sansCoupler.handlers['saveBlueprint:click']();
+const sansReload=create(sansCoupler.save);
+assert.equal(sansReload.api.snapshot().docking,null,'Explicitly removed docking hardware stays removed');
+assert.equal(sansReload.api.dock().ok,false);
 console.log('2D shipyard interaction tests passed.');
