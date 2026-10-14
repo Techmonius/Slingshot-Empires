@@ -886,6 +886,18 @@ function setPanelCollapsed(collapsed){
 let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,stations=saved.stations,mines=saved.mines,mineScreenPlanet=null,cargoFlight=null,target='aurora',angle=0,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,burnDragging=false,rocket=null,simT=0,waitTime=0,launchEpoch=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=0,burnAngle=0,orbitWait=0,orbitForecastCache=null,holdPointer=null,holdOrigin=null,holdDouble=false,warpTarget=null,warpStop=null,apsisCacheRocket=null,apsisCache=null,burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
 function store(){try{localStorage.setItem(DATA_KEY,JSON.stringify({shots,wins:[...wins],grades,stations,mines}))}catch{}}
 // Development-only: a cargo manifest is a flight preview, not an inventory transaction.
+function cargoOrbitHint(detail=false){
+ if(!rocket)return 'Set launch angle and Δv';
+ const o=orbitalElements(rocket,target);
+ const p=getBody(target,rocket.t),r=p.r+16;
+ const phi=(target==='aurora'?.85:-1.25)+Math.sqrt(p.mu/r**3)*rocket.t;
+ const tangential=Math.sqrt(p.mu/r);
+ const px=p.x+r*Math.cos(phi),py=p.y+r*Math.sin(phi);
+ const vx=p.vx-tangential*Math.sin(phi),vy=p.vy+tangential*Math.cos(phi);
+ const separation=Math.hypot(rocket.x-px,rocket.y-py),relative=Math.hypot(rocket.vx-vx,rocket.vy-vy);
+ return (o?.stable?'SAFE ORBIT':'INSERT INTO SAFE ORBIT')+
+  ' · STATION '+separation.toFixed(1)+'u · REL '+relative.toFixed(2)+(detail?' u/s · Pilot rendezvous next':'');
+}
 function beginSurfaceCargoPreview(world,resource,rawAmount){
  if(!CARGO_PLAYTEST||!STATION_PLANETS.includes(world)||
    !stationSummary(world).operational||!mines[world].surveyed)return false;
@@ -961,7 +973,7 @@ function predict(){
 function updateControls(){
  $('angleValue').textContent=`${angle.toFixed(1)}°`;
  $('speedValue').textContent=speed.toFixed(2);
- $('angleRange').value=angle;$('speedRange').value=speed;
+ $('angleRange').value=angle;$('speedRange').value=speed;$('speedRange').max=cargoFlight?20:65;
  $('waitRange').value=waitTime;
  $('waitValue').textContent=`T + ${waitTime.toFixed(1)} s`;
  for(const id of ['waitRange','waitZero','waitMinusTen','waitMinusOne','waitPlusOne','waitPlusTen'])$(id).disabled=phase!=='aiming';
@@ -972,7 +984,7 @@ function updateControls(){
  $('objectiveHint').textContent=cargoFlight?'Pilot into a safe orbit around the source planet; docking is coming next.':MISSION[target].hint;
  updateStationUI();
  $('controlTitle').textContent=phase==='aiming'?(cargoFlight?'Local cargo launch':'Launch parameters'):phase==='flying'?(cargoFlight?'Cargo orbit insertion':'Manual orbital capture'):'Flight complete';
- $('controlSub').textContent=phase==='aiming'?'Advance time to find better planet alignment':phase==='flying'?(localEncounter?'Pilot the burn; safe orbit requires a full revolution':'Approach the target capture zone'):'Adjust launch parameters to retry';
+ $('controlSub').textContent=phase==='aiming'?(cargoFlight?'Set the local orbital launch angle and Δv':'Advance time to find better planet alignment'):phase==='flying'?(localEncounter?'Pilot the burn; safe orbit requires a full revolution':'Approach the target capture zone'):'Adjust launch parameters to retry';
  $('statusPill').textContent=phase==='aiming'?'READY':phase==='flying'?(warpTarget?'WARPING':paused?'PAUSED':'IN FLIGHT'):(phase==='won'?'SUCCESS':'LOST');
  $('statusPill').className='status-pill '+(phase==='flying'?'moving':phase==='won'?'won':phase==='lost'?'lost':'');
  const disable=phase==='flying';for(const id of ['angleRange','speedRange','angleMinus','anglePlus','angleMinusFine','anglePlusFine','speedMinusLarge','speedMinusFine','speedPlusFine','speedPlusLarge','speedZero'])$(id).disabled=disable;
@@ -1001,8 +1013,8 @@ function updateControls(){
    $('burnLegendItem').hidden=!burnPreview?.after;
    $('burnLegendText').textContent='BURN '+gradeLabel(rating);
    $('burnLegendKey').style.borderTopColor=burnColor;
-   $('captureValue').textContent=orbital.stable?`SAFE ORBIT · ${Math.floor(100*Math.min(1,stableSweep/TAU))}%`:`${burnCount} burn${burnCount===1?'':'s'} · ADJUST ORBIT`;
-   $('orbitTelemetry').textContent=`RADIAL ${orbital.radial.toFixed(1)} · SIDEWAYS ${orbital.tangent.toFixed(1)} · CIRCLE ${orbital.circle.toFixed(1)} Δv`;
+   $('captureValue').textContent=cargoFlight?cargoOrbitHint():orbital.stable?`SAFE ORBIT · ${Math.floor(100*Math.min(1,stableSweep/TAU))}%`:`${burnCount} burn${burnCount===1?'':'s'} · ADJUST ORBIT`;
+   $('orbitTelemetry').textContent=cargoFlight?cargoOrbitHint(true):`RADIAL ${orbital.radial.toFixed(1)} · SIDEWAYS ${orbital.tangent.toFixed(1)} · CIRCLE ${orbital.circle.toFixed(1)} Δv`;
    const metric=newOrbit&&Number.isFinite(newOrbit.apo)?`Pe ${newOrbit.peri.toFixed(1)} / Ap ${newOrbit.apo.toFixed(1)}`:
     (newOrbit?`Pe ${newOrbit.peri.toFixed(1)} / unbound`:'No orbit data');
    $('burnPrediction').textContent=trial
@@ -1054,7 +1066,7 @@ function updateControls(){
    for(const id of ['orbitWaitRange','orbitWaitNow','orbitWaitMinusTen','orbitWaitMinusOne','orbitWaitPlusOne','orbitWaitPlusTen'])$(id).disabled=true;
    $('apsisStatus').textContent='';
    $('orbitTelemetry').textContent='';
-   $('captureValue').textContent=target==='star'?'Stellar impact mission':'Enter the green encounter zone';
+   $('captureValue').textContent=cargoFlight?'Insert into a safe local orbit':target==='star'?'Stellar impact mission':'Enter the green encounter zone';
    $('orbitButton').disabled=true;$('orbitButton').textContent='WAIT FOR ENCOUNTER';
   }
  }
@@ -1065,14 +1077,14 @@ function updateControls(){
 }
 function chooseTarget(id){if(!MISSION[id])return;cargoFlight=null;target=id;resetFlight();}
 function resetFlight(){setPanelCollapsed(false);phase='aiming';holdPointer=null;holdDouble=false;orbitWait=0;orbitForecastCache=null;warpTarget=null;warpStop=null;apsisCacheRocket=null;apsisCache=null;rocket=null;simT=waitTime;launchEpoch=waitTime;paused=false;accum=0;result=null;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;$('resultShade').classList.remove('show');predict();updateControls();applyPendingRelease();}
-function changeAim(nextAngle,nextSpeed){angle=CLAMP(Math.round(nextAngle*10)/10,-180,180);speed=CLAMP(Math.round(nextSpeed*100)/100,0,65);predict();updateControls();}
+function changeAim(nextAngle,nextSpeed){angle=CLAMP(Math.round(nextAngle*10)/10,-180,180);speed=CLAMP(Math.round(nextSpeed*100)/100,0,cargoFlight?20:65);predict();updateControls();}
 function setWaitTime(t){if(phase!=='aiming')return;waitTime=CLAMP(Math.round(t*2)/2,0,120);launchEpoch=waitTime;simT=waitTime;predict();updateControls();}
 function setBurnPower(nextPower){burnPower=Math.round(CLAMP(nextPower,0,Math.min(20,fuel))*100)/100;updateControls();}
 function setBurnAngle(nextAngle){burnAngle=CLAMP(Math.round(nextAngle*10)/10,-180,180);updateControls();}
 function launch(){
  if(phase==='flying')return;
  if(phase!=='aiming'){resetFlight();}
- shots++;store();holdPointer=null;holdDouble=false;orbitWait=0;orbitForecastCache=null;warpTarget=null;warpStop=null;apsisCacheRocket=null;apsisCache=null;launchEpoch=waitTime;rocket=startRocket();simT=launchEpoch;phase='flying';paused=false;accum=0;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;setPanelCollapsed(true);updateControls();
+ shots++;store();holdPointer=null;holdDouble=false;orbitWait=0;orbitForecastCache=null;warpTarget=null;warpStop=null;apsisCacheRocket=null;apsisCache=null;launchEpoch=waitTime;rocket=startRocket();simT=launchEpoch;phase='flying';paused=false;accum=0;fuel=MAX_FUEL;encounterNotified=false;localEncounter=!!cargoFlight;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;setPanelCollapsed(true);updateControls();
 }
 const trail=[];
 function endFlight(outcome){
@@ -1093,8 +1105,8 @@ function endFlight(outcome){
  updateControls();
  $('dialogSymbol').textContent=phase==='won'?'✦':'↯';
  $('dialogSymbol').style.color=phase==='won'?'#79e9b8':'#ff849d';
- $('dialogEyebrow').textContent=phase==='won'?'MISSION COMPLETE':'FLIGHT FAILED';
- $('dialogTitle').textContent=phase==='won'?(target==='star'?'Stellar impact!':'Stable orbit achieved!'):'Flight failed';
+ $('dialogEyebrow').textContent=cargoFlight?'CARGO ORBIT PLAYTEST':phase==='won'?'MISSION COMPLETE':'FLIGHT FAILED';
+ $('dialogTitle').textContent=cargoFlight?(phase==='won'?'Orbital insertion playtest complete':'Cargo launch failed'):(phase==='won'?(target==='star'?'Stellar impact!':'Stable orbit achieved!'):'Flight failed');
  $('dialogDetail').textContent=phase==='won'?(target==='star'?`${MISSION[target].success} Flight time: ${(simT-launchEpoch).toFixed(1)}s.`:`${MISSION[target].success} Orbit grade ${finalScore?.grade||'—'} (${finalScore?.score??'—'}/100). Best recorded: ${grades[target]??'—'}/100. Fuel left: ${fuel.toFixed(2)} Δv.`):`${outcome.label} Try a new angle or launch speed.`;
  if(stationDelivery){
   const after=stationDelivery.after;
@@ -1263,7 +1275,7 @@ function render(){
   const p=getBody(target,t),loc=worldToScreen(p.x,p.y);
   lineCircle(loc.x,loc.y,CAPTURE_RADIUS[target]*camera.scale,'rgba(116,238,177,.65)',1.6,[5,4]);
  }
- if(localEncounter&&rocket&&target!=='star'){
+ if((localEncounter||cargoFlight)&&target!=='star'){
   const planet=getBody(target,t);
   drawOrbitGradeHeatmap(target,planet);
  }
