@@ -2,6 +2,24 @@
 
 Live game: https://techmonius.github.io/Slingshot-Empires/
 
+## v0.16 foundation — Expandable Home orbital dock (model only)
+
+**Confirmed design:** The Home world begins with a small functional cargo-receiving orbital dock; unlike Aurora and Cinder's orbital stations, it requires no construction deliveries to become operational. It has limited stockpile space and simple docking capability, **not** a free full-service shipyard or advanced laboratory.
+
+New functions in `cargo-core.js`: `homeDockSummary()`, `homeDockStorage()`, `canReceiveHomeCargo()`, `homeDockUpgradeCheck()`, and `upgradeHomeDock()`. The model supports three optional research-and-cargo-funded Home facilities:
+
+| Expansion | New capability | Temporary resource recipe |
+|---|---|---|
+| Orbital Fuel Depot | Fuel storage and transfer | 12 iron, 4 silicon |
+| Orbital Assembly Yard | Orbital spacecraft assembly | 18 iron, 10 copper, 6 silicon |
+| Orbital Research Laboratory | Orbital experiments and science | 12 copper, 12 silicon |
+
+The tentative starting cargo capacity is **80 units**, expanded by upgrading facilities. Costs, storage, and research requirements are **provisional**, particularly because chemistry/refining is not yet implemented. These raw-mineral upgrade recipes will need to become processed components before the economy goes live.
+
+An upgrade requires its exact research unlock and construction materials physically delivered to the **Home orbital** inventory, not stock located on another planet or at Home's surface. Upgrade preparation does not consume resources; a separate explicit upgrade action deducts resources once and adds capabilities. Repeating an already completed upgrade is rejected. Receipts at Home are capacity-checked. Older cargo states initialize the basic dock without affecting existing station deliveries or cargo inventories.
+
+**Not yet live:** The cargo model, docking rules, deliveries, research, and Home expansion interface are not connected to `index.html`. The shipped PWA still uses v0.15. All changes here have repeatable `node cargo-core.test.js` checks.
+
 ## v0.16 prototype — 2D modular shipyard (not part of installed game yet)
 
 [Open the independent spacecraft assembly prototype](./ship-builder.html) or go directly to `https://techmonius.github.io/Slingshot-Empires/ship-builder.html`. This is **development work**, not a v0.16 release; `index.html`, `release.json`, and the offline cache remain on v0.15.
