@@ -245,9 +245,14 @@ function remove(slot){
  state.fuelUnits=Math.min(state.fuelUnits,cap());
  feedback=KNOWN[part].name+' removed';render();return true;
 }
+function assembledConfiguration(){
+ return {...state,tanks:state.tanks.filter(Boolean),bays:state.bays.filter(Boolean)};
+}
 function evaluate(){
- return SHIPS.evaluateDesign({...state,
-  tanks:state.tanks.filter(Boolean),bays:state.bays.filter(Boolean)}, {technology:UNLOCKED});
+ return SHIPS.evaluateDesign(assembledConfiguration(),{technology:UNLOCKED});
+}
+function dockingStatus(){
+ return SHIPS.dockingHardware(assembledConfiguration(),{technology:UNLOCKED});
 }
 function socket(slot,title,layout){
  const part=slotValue(slot),meta=part?KNOWN[part]:null;
@@ -319,7 +324,7 @@ function render(){
  $('powerRange').max=frame.batteryCapacity;
  $('powerRange').value=state.powerUnits;
  $('powerLabel').textContent=state.powerUnits.toFixed(1)+' / '+frame.batteryCapacity.toFixed(1)+' units';
- const system=SHIPS.dockingHardware(state,{technology:UNLOCKED});
+ const system=dockingStatus();
  $('dockPowerStatus').textContent=system.ok?
    'Docking ready · '+system.cost.toFixed(1)+' electrical units per assisted docking. No main-engine fuel.' :
    (system.reason||'Install a docking module and charge the battery.');
@@ -439,7 +444,7 @@ for(const parent of [tray,rocket])parent.addEventListener('keydown',e=>{
  if(part){e.preventDefault();handleTapPart(part)}
  if(slot&&selection){e.preventDefault();place(selection.part,slot.dataset.slot,selection.origin)}
 });
-window.__shipBuilder={snapshot:()=>clone(state),evaluate,layout:()=>SHIPS.evaluateLayout(state),dock:()=>SHIPS.dockingHardware(state,{technology:UNLOCKED}),select,place,remove,setFuel,setPower,setCargo,reset,normal:normalized};
+window.__shipBuilder={snapshot:()=>clone(state),evaluate,layout:()=>SHIPS.evaluateLayout(state),dock:dockingStatus,select,place,remove,setFuel,setPower,setCargo,reset,normal:normalized};
 render();
 })();
 </script>
