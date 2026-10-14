@@ -395,6 +395,8 @@ const PLANETS=[
 const MISSION={aurora:{name:'Aurora',hint:'Enter the green zone, fly and burn into orbit',success:'Aurora orbit secured. Your first orbital outpost is established.'},cinder:{name:'Cinder',hint:'Brake manually, avoid impact, complete an orbit',success:'Cinder orbit secured. You mastered the inner system.'},star:{name:'Star',hint:'Dive into the star (experimental target)',success:'Stellar impact! That ship will not be coming home.'}};
 const DATA_KEY='slingshot-flight-lab-v04',OLD_DATA_KEY='slingshot-flight-lab-v03',V02_DATA_KEY='slingshot-flight-lab-v02',FIRST_DATA_KEY='slingshot-flight-lab-v01';
 const MAX_FUEL=30;
+const CARGO_PLAYTEST=new URLSearchParams(location.search).get('cargoDev')==='1';
+const SURFACE_SITE={aurora:-.7,cinder:.6};
 const CAPTURE_RADIUS={aurora:46,cinder:37};
 const ORBIT_LIMIT={aurora:72,cinder:58};
 // Within the encounter zone, use continuous two-body integration in the planet's moving frame.
@@ -863,7 +865,7 @@ function setPanelCollapsed(collapsed){
  // Force Canvas resolution and hit-test camera to follow the resized play area.
  requestAnimationFrame(resize);
 }
-let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,stations=saved.stations,mines=saved.mines,mineScreenPlanet=null,target='aurora',angle=0,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,burnDragging=false,rocket=null,simT=0,waitTime=0,launchEpoch=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=0,burnAngle=0,orbitWait=0,orbitForecastCache=null,holdPointer=null,holdOrigin=null,holdDouble=false,warpTarget=null,warpStop=null,apsisCacheRocket=null,apsisCache=null,burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
+let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,stations=saved.stations,mines=saved.mines,mineScreenPlanet=null,cargoFlight=null,target='aurora',angle=0,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,burnDragging=false,rocket=null,simT=0,waitTime=0,launchEpoch=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=0,burnAngle=0,orbitWait=0,orbitForecastCache=null,holdPointer=null,holdOrigin=null,holdDouble=false,warpTarget=null,warpStop=null,apsisCacheRocket=null,apsisCache=null,burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
 function store(){try{localStorage.setItem(DATA_KEY,JSON.stringify({shots,wins:[...wins],grades,stations,mines}))}catch{}}
 function orbitPos(p,t){const omega=Math.sqrt(MU_STAR/(p.orbit**3));const q=p.phase+omega*t;return {x:p.orbit*Math.cos(q),y:p.orbit*Math.sin(q),vx:-p.orbit*omega*Math.sin(q),vy:p.orbit*omega*Math.cos(q)}}
 function bodiesAt(t){return PLANETS.map(p=>({...p,...orbitPos(p,t)}))}
@@ -875,6 +877,7 @@ function acceleration(x,y,t){
 }
 // Aim in Home's rotating orbital frame: 0 prograde; +90 outward; -90 inward; 180 retrograde.
 function launchHeading(t,relativeAngle=angle){
+ if(cargoFlight)return SURFACE_SITE[cargoFlight.world]+PI/2-relativeAngle*RAD;
  const home=getBody('home',t);
  return Math.atan2(home.vy,home.vx)-relativeAngle*RAD;
 }
@@ -883,6 +886,11 @@ function launchAngleFromHeading(worldHeading,t){
  return Math.atan2(Math.sin(difference),Math.cos(difference))/RAD;
 }
 function startRocket(){
+ if(cargoFlight){
+  const p=getBody(cargoFlight.world,waitTime),site=SURFACE_SITE[cargoFlight.world],direction=launchHeading(waitTime);
+  return {x:p.x+(p.r+5)*Math.cos(site),y:p.y+(p.r+5)*Math.sin(site),
+   vx:p.vx+speed*Math.cos(direction),vy:p.vy+speed*Math.sin(direction),t:waitTime};
+ }
  const h=getBody('home',waitTime),a=launchHeading(waitTime),ux=Math.cos(a),uy=Math.sin(a);
  const x=h.x+(h.r+5)*ux,y=h.y+(h.r+5)*uy;
  return {x,y,vx:h.vx+speed*ux,vy:h.vy+speed*uy,t:waitTime};
@@ -909,7 +917,7 @@ function predict(){
  let r=startRocket(),outcome=null,approach=null;
  points.push({x:r.x,y:r.y});
  for(let i=0;i<STEPS;i++){
-  r=advance(r,DT);if(i%3===0)points.push({x:r.x,y:r.y});
+  r=cargoFlight?localAdvance(r,DT,target):advance(r,DT);if(i%3===0)points.push({x:r.x,y:r.y});
   const q=encounterFrame(r,target);
   if(q&&q.dist>q.p.r+4&&q.dist<CAPTURE_RADIUS[target]){
    const required=Math.hypot(q.radial,q.circle-Math.abs(q.tangent));
@@ -1024,7 +1032,7 @@ function updateControls(){
  $('touchTip').textContent=phase==='aiming'?(target==='star'?'Aim to hit the star':'Drag HOME to aim · Pinch to zoom'):phase==='flying'?(localEncounter?(paused?'Drag rocket to aim · Pinch to zoom':'Pause to plan · Pinch to zoom'): 'Hold map for 2× travel · Drag to pan'):'Pinch to zoom · Drag empty space to pan';
  for(const id of ['aurora','cinder','star'])$('mission'+id[0].toUpperCase()+id.slice(1)).style.color=id===target?'#e5fbff':'#7fa3c2';
 }
-function chooseTarget(id){if(!MISSION[id])return;target=id;resetFlight();}
+function chooseTarget(id){if(!MISSION[id])return;cargoFlight=null;target=id;resetFlight();}
 function resetFlight(){setPanelCollapsed(false);phase='aiming';holdPointer=null;holdDouble=false;orbitWait=0;orbitForecastCache=null;warpTarget=null;warpStop=null;apsisCacheRocket=null;apsisCache=null;rocket=null;simT=waitTime;launchEpoch=waitTime;paused=false;accum=0;result=null;fuel=MAX_FUEL;encounterNotified=false;localEncounter=false;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;$('resultShade').classList.remove('show');predict();updateControls();applyPendingRelease();}
 function changeAim(nextAngle,nextSpeed){angle=CLAMP(Math.round(nextAngle*10)/10,-180,180);speed=CLAMP(Math.round(nextSpeed*100)/100,0,65);predict();updateControls();}
 function setWaitTime(t){if(phase!=='aiming')return;waitTime=CLAMP(Math.round(t*2)/2,0,120);launchEpoch=waitTime;simT=waitTime;predict();updateControls();}
@@ -1104,7 +1112,7 @@ function tickPhysics(dt){
    updateControls();return;
   }
  }
- if(localEncounter&&burnCount>0){
+ if(localEncounter&&burnCount>0&&!cargoFlight){
   const orbit=orbitalElements(rocket,target),polar=Math.atan2(orbit.dy,orbit.dx);
   if(lastPolar!==null){
    const delta=Math.atan2(Math.sin(polar-lastPolar),Math.cos(polar-lastPolar));
@@ -1115,7 +1123,7 @@ function tickPhysics(dt){
   if(stableSweep>=TAU-.04){endFlight({kind:'win',hit:target,label:'Completed one safe, self-propelled orbit.'});return;}
  }
 }
-function nextTarget(){const order=['aurora','cinder','star'];chooseTarget(order[(order.indexOf(target)+1)%order.length]);}
+function nextTarget(){cargoFlight=null;const order=['aurora','cinder','star'];chooseTarget(order[(order.indexOf(target)+1)%order.length]);}
 function resize(){
  const rect=arena.getBoundingClientRect();if(rect.width<5||rect.height<5)return;
  const dpr=Math.min(window.devicePixelRatio||1,2);
@@ -1133,7 +1141,7 @@ const mapViews={system:{zoom:1,panX:0,panY:0},orbit:{zoom:1,panX:0,panY:0}};
 const pointers=new Map();
 let pinch=null,panPointer=null,panLast=null,suppressSingle=false;
 let camera={x:0,y:0,scale:1,cx:0,cy:0};
-function orbitCameraActive(){return localEncounter&&!!rocket&&target!=='star'}
+function orbitCameraActive(){return (localEncounter&&!!rocket||cargoFlight&&phase==='aiming')&&target!=='star'}
 function currentMap(){return orbitCameraActive()?mapViews.orbit:mapViews.system}
 function setCamera(){
  const map=currentMap();
@@ -1268,7 +1276,7 @@ function render(){
  }
  for(const p of PLANETS)planetDraw(p,t);
  planetDraw(STAR,t);
- const home=getBody('home',t),hp=worldToScreen(home.x,home.y);
+ const home=getBody(cargoFlight?.world||'home',t),hp=worldToScreen(home.x,home.y);
  if(phase==='aiming'){
   const pro=launchHeading(t,0),referenceLength=30;
   ctx.beginPath();ctx.moveTo(hp.x,hp.y);ctx.lineTo(hp.x+Math.cos(pro)*referenceLength,hp.y+Math.sin(pro)*referenceLength);
@@ -1357,13 +1365,13 @@ canvas.addEventListener('pointerdown',e=>{
   e.preventDefault();return;
  }
  if(phase==='aiming'){
-  const home=orbitPos(PLANETS[0],waitTime),homeS=worldToScreen(home.x,home.y);
+  const home=getBody(cargoFlight?.world||'home',waitTime),homeS=worldToScreen(home.x,home.y);
   if(distance(x,y,homeS)<Math.max(26,PLANETS[0].r*camera.scale+15)){
    dragging=true;pointerId=e.pointerId;e.preventDefault();return;
   }
   for(const id of ['aurora','cinder','star']){
    const p=getBody(id,waitTime),pos=worldToScreen(p.x,p.y);
-   if(distance(x,y,pos)<Math.max(24,p.r*camera.scale+13)){chooseTarget(id);return;}
+   if(!cargoFlight&&distance(x,y,pos)<Math.max(24,p.r*camera.scale+13)){chooseTarget(id);return;}
   }
  }
  panPointer=e.pointerId;panLast=pt;e.preventDefault();
@@ -1400,7 +1408,7 @@ canvas.addEventListener('pointermove',e=>{
   burnPower=Math.round(CLAMP(dist/Math.max(65,Math.min(view.width,view.height)*.30)*20,0,Math.min(20,fuel))*100)/100;
   updateControls();
  }else if(dragging&&phase==='aiming'){
-  const home=orbitPos(PLANETS[0],waitTime),hp=worldToScreen(home.x,home.y);
+  const home=getBody(cargoFlight?.world||'home',waitTime),hp=worldToScreen(home.x,home.y);
   const dx=x-hp.x,dy=y-hp.y,dist=Math.hypot(dx,dy);
   if(dist>10)changeAim(launchAngleFromHeading(Math.atan2(dy,dx),waitTime),CLAMP(dist/Math.max(80,view.width*.3)*65,0,65));
  }
