@@ -4,7 +4,7 @@ Live game: https://techmonius.github.io/Slingshot-Empires/
 
 ## v0.16 integration status (updated after CEO design review)
 
-**Repository work is real; the v0.16 cargo gameplay is not released.** The main `index.html` and `release.json` remain at v0.15 until a real, integrated mission is completed and playtested. `ship-builder.html` is a separate prototype page.
+**Repository work is real; complete v0.16 cargo gameplay is not released.** `index.html` now contains an **opt-in cargo ascent test mode**, but `APP_RELEASE`, `release.json`, and the offline cache remain at v0.15. The experimental mode is hidden in ordinary gameplay and does not modify mined resource quantities, station delivery history, or normal flight totals. `ship-builder.html` remains a separate design prototype.
 
 | System | Implemented in development | Actually playable in installed game? |
 |---|---|---|
@@ -14,12 +14,16 @@ Live game: https://techmonius.github.io/Slingshot-Empires/
 | Cargo inventory/route validation | Data-only logic | No |
 | Manual approach/assisted docking | Data-only state machine | No |
 | Home dock expansions | Research/material gated model | No |
-| Surface-to-orbit cargo launch | Not yet | No |
+| Surface-to-orbit cargo launch | **Opt-in test inside the existing orbital map:** launch from Aurora/Cinder, local gravity integration, trajectory preview, angle/Δv launch and manual orbit burns | No, only experimental `?cargoDev=1` mode |
 | Inventory-changing cargo unloading | Not yet | No |
 | Chemistry and manufacturing puzzles | Not yet | No |
 | Research tree and advanced rocket unlock | Not yet | No |
 
-**Immediate implementation target:** Integrate a complete player-flown cargo mission with a ship built using the prototype: choose launch location and cargo, perform a real manual surface-to-orbit mission, approach the moving station, dock using electrical power, and unload cargo exactly once into the station inventory. Every resource change must be transactional and save-safe. Obtain CEO design approval on surface ascent UX before adding a new flight system.
+**CEO-approved surface ascent method (Option A):** Reuse the existing orbital map and launch/burn controls, not a dedicated ascent minigame. The first playable integration slice is committed and tested. In an **online development session**, append `?cargoDev=1` to the game URL, enter a commissioned Aurora or Cinder station's mining screen, survey/mine at least 1 unit, choose a 1–12-unit test manifest, and tap **PLAN LOCAL LAUNCH**. The map switches to that planet's orbit view and its local gravitational integrator. Launch Δv, manual orbit burns, prediction, pause/coast, and orbital telemetry remain available. Ordinary Home-origin flights still work.
+
+**Deliberate restrictions:** The cargo manifest is **read-only**; no stock is withdrawn, delivered or credited, even if the test rocket obtains a stable orbit. Cargo flights do not increase legacy shot totals or count toward station-construction deliveries, and a stable orbit does **not** complete docking. The first prototype still uses the legacy fixed flight fuel allowance; integration of modular ship mass/rocket-equation fuel and the moving-station docking state machine remains to be completed. Experimental flights can run until impact, escape, timeout or reset, without awarding cargo success. The current offline PWA cache is not updated for this development-only path, so it may require a fresh online load.
+
+**Next implementation target:** Connect the player's modular ship and real fuel budget to this exact in-map cargo mode; then connect station-position/relative-velocity docking, finally transactional cargo unloading. Obtain CEO design approval on cargo failure/recovery rules before spending real deposits. Run `node cargo-flight.test.js` for the in-map integration regression suite. Do not update the PWA release marker until a full delivery is working and tested.
 
 Research-gated solar power, later direct delivery, and automated repeat routes remain subsequent unlocks. **Do not advance the main PWA release marker** until the whole first mission actually works and existing saves are regression tested.
 
