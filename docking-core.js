@@ -46,7 +46,9 @@
  function evaluateApproach({ship,station,manualFlight=false,safeOrbit=false,
   dockOperational=false,targetWorld,stationWorld,config,hardware}={}){
   const installed=validHardware(hardware);
-  const rules=limits({...config,...(installed?{assistRadius:installed.assistRadius}:{})});
+  const callerRules=limits(config);
+  if(!callerRules)return {eligible:false,reason:'Invalid docking thresholds'};
+  const rules=limits({...callerRules,...(installed?{assistRadius:installed.assistRadius}:{})});
   if(!rules)return {eligible:false,reason:'Invalid docking thresholds'};
   if(!vectorState(ship)||!vectorState(station))
    return {eligible:false,reason:'Missing or invalid spacecraft/station state'};
