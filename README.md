@@ -2,6 +2,20 @@
 
 Live game: https://techmonius.github.io/Slingshot-Empires/
 
+## v0.16 foundation — Manual approach, assisted final docking (model only)
+
+**Confirmed design:** A cargo mission must **manually approach the orbiting destination station** after attaining a safe planetary orbit. The final connection is assisted **only when the spacecraft is close and its velocity nearly matches the station's**. Merely getting an S/A/B stable capture grade does not dock the vessel, transfer resources or unlock an automated supply route.
+
+Pure model in `docking-core.js` with tests in `docking-core.test.js`:
+
+- Requires a manually piloted flight, a safe bound orbit, an operational dock, a matching destination world/station, **position separation** and **relative velocity** within limits (ship/station sampled at the same simulation time).
+- Proposed approach awareness zone is **12 game distance units**; final capture zone **2.5 units**; relative velocity must be **0.75 units/s or less** for **0.75 simulation seconds**, sampled continuously. Time skips cannot claim the entire hold instantly. These numbers are **design placeholders**, not verified as comfortable to play on an actual iPhone.
+- During a high-speed pass, without a safe orbit, against the wrong station, or outside close range, docking does not complete. Leaving the corridor or becoming ineligible resets the hold timer.
+- Once the short low-speed hold succeeds, the pure state machine produces a **one-time docking event** to be validated by a future live-mission integration. It **never moves cargo, spends propellant, builds facilities or fabricates a proven transport route** by itself.
+- The docking assistance hardware and any fuel/power cost are **not yet approved**. The station's moving target representation, on-map relative-speed instrumentation, and touch controls remain to be implemented before the mechanic goes live.
+
+This module is **not connected to the v0.15 game**. Its standalone regression suite can be run with `node docking-core.test.js`. The released game still uses v0.15; GitHub Pages deployment of a development file must not be mistaken for a new installed PWA release.
+
 ## v0.16 foundation — Expandable Home orbital dock (model only)
 
 **Confirmed design:** The Home world begins with a small functional cargo-receiving orbital dock; unlike Aurora and Cinder's orbital stations, it requires no construction deliveries to become operational. It has limited stockpile space and simple docking capability, **not** a free full-service shipyard or advanced laboratory.
