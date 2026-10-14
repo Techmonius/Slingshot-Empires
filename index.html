@@ -257,7 +257,7 @@
 <body>
 <div class="app">
   <header class="top">
-    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.15</span></div></div>
+    <div><div class="brand">SLINGSHOT EMPIRES</div><div class="subtitle">Flight Lab <span class="version">V0.15.1 · PLAYTEST</span></div></div>
     <div class="stats"><div class="stat">Shots <strong id="shotCount">0</strong></div><div class="stat">Wins <strong id="winCount">0</strong>/3</div></div>
   </header>
   <main class="arena" id="arena" aria-label="Interactive solar system. Drag outward from the blue home planet to aim a rocket.">
@@ -342,7 +342,7 @@
       <div id="orbitTelemetry"></div>
       <div class="action-row"><button id="orbitButton" class="primary" disabled>WAIT FOR ENCOUNTER</button><button id="coastButton" class="secondary">PAUSE</button></div>
     </div>
-    <div class="mission-link">Target: <button id="missionAurora">Aurora</button> · <button id="missionCinder">Cinder</button> · <button id="missionStar">Star</button></div>
+    <div class="mission-link">Target: <button id="missionAurora">Aurora</button> · <button id="missionCinder">Cinder</button> · <button id="missionStar">Star</button> · <button id="exitCargoTest" hidden>EXIT CARGO TEST</button></div>
     </div>
   </section>
   <div class="shade" id="stationShade" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="stationDialogTitle">
@@ -363,7 +363,18 @@
           <div class="station-card-footer"><span id="stationCinderScore" class="station-card-score">NO STATION</span><button id="stationMineCinder" disabled>SURVEY / MINING</button><button id="stationToCinder">PLAN FLIGHT</button></div>
         </div>
       </div>
-      <p class="station-dialog-foot">Three safe-orbit deliveries unlock planetary surveys and mining. Orbit quality will influence logistics when cargo routes are added. Only manually completed safe orbits count.</p>
+      <section style="padding:12px;margin-top:12px;border:1px solid #4d9a97;border-radius:10px;background:#143c48">
+       <strong style="font-size:13px;color:#adf6dd">🚀 v0.15.1 CARGO FLIGHT PLAYTEST</strong>
+       <p style="font-size:11px;line-height:1.45;color:#c0d9e9;margin:6px 0 10px">Test surface-to-orbit launches with sample cargo even if you have not built a station. Fuel, cargo, and delivery outcomes are simulated; existing saves and mined stock remain safe.</p>
+       <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+        <label for="demoCargoPlanet" style="font-size:11px">LAUNCH PLANET</label>
+        <select id="demoCargoPlanet" style="flex:1;min-width:96px;min-height:36px;background:#0b2639;border:1px solid #5a889e;color:#f2fbff;border-radius:7px"><option value="aurora">Aurora</option><option value="cinder">Cinder</option></select>
+        <button id="demoCargoLaunch" style="min-height:38px;padding:6px 10px;background:#246b62;color:#eafff7;font-size:11px;font-weight:800;border:1px solid #78bfb0;border-radius:8px">START TEST FLIGHT</button>
+       </div>
+       <p id="demoCargoStatus" role="status" style="font-size:10px;color:#b6e9dc;line-height:1.4;margin:7px 0">Includes unlimited virtual test cargo. Manual orbital flight; station docking and unloading come later.</p>
+       <a href="./ship-builder.html" style="display:block;text-align:center;padding:10px;margin-top:8px;border-radius:8px;border:1px solid #688aa2;color:#ccedff;background:#203f59;font-size:11px;font-weight:800;text-decoration:none">🛠 OPEN 2D SPACECRAFT BUILDER ↗</a>
+      </section>
+      <p class="station-dialog-foot">Three safe-orbit deliveries unlock planetary surveys and mining. Only the original manually completed station-delivery missions count; playtest launches never affect your progress.</p>
     </div>
   </div>
   <div class="shade" id="miningShade" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="mineTitle">
@@ -405,7 +416,8 @@ const PLANETS=[
 const MISSION={aurora:{name:'Aurora',hint:'Enter the green zone, fly and burn into orbit',success:'Aurora orbit secured. Your first orbital outpost is established.'},cinder:{name:'Cinder',hint:'Brake manually, avoid impact, complete an orbit',success:'Cinder orbit secured. You mastered the inner system.'},star:{name:'Star',hint:'Dive into the star (experimental target)',success:'Stellar impact! That ship will not be coming home.'}};
 const DATA_KEY='slingshot-flight-lab-v04',OLD_DATA_KEY='slingshot-flight-lab-v03',V02_DATA_KEY='slingshot-flight-lab-v02',FIRST_DATA_KEY='slingshot-flight-lab-v01';
 const MAX_FUEL=30;
-const CARGO_PLAYTEST=new URLSearchParams(location.search).get('cargoDev')==='1';
+// Installed interim playtest is on by default; ?cargoDev=0 remains for regression comparisons.
+const CARGO_PLAYTEST=new URLSearchParams(location.search).get('cargoDev')!=='0';
 const SURFACE_SITE={aurora:-.7,cinder:.6};
 const CAPTURE_RADIUS={aurora:46,cinder:37};
 const ORBIT_LIMIT={aurora:72,cinder:58};
@@ -898,6 +910,14 @@ function cargoOrbitHint(detail=false){
  return (o?.stable?'SAFE ORBIT':'INSERT INTO SAFE ORBIT')+
   ' · STATION '+separation.toFixed(1)+'u · REL '+relative.toFixed(2)+(detail?' u/s · Pilot rendezvous next':'');
 }
+// Virtual sandbox mission is accessible from the station network with no
+// progression prerequisites, for every player including fresh installations.
+function beginCargoTraining(world){
+ if(!CARGO_PLAYTEST||!STATION_PLANETS.includes(world)||phase==='flying')return false;
+ cargoFlight={world,resource:world==='aurora'?'ice':'iron',amount:2,training:true};
+ target=world;angle=0;speed=7;waitTime=0;
+ closeStationDashboard();resetFlight();return true;
+}
 function beginSurfaceCargoPreview(world,resource,rawAmount){
  if(!CARGO_PLAYTEST||!STATION_PLANETS.includes(world)||
    !stationSummary(world).operational||!mines[world].surveyed)return false;
@@ -981,12 +1001,14 @@ function updateControls(){
  $('clock').textContent=`T + ${simT.toFixed(1)}s${holdDouble?' · HOLD 2×':''}`;
  $('clock').classList.toggle('holding',holdDouble);
  $('objectiveLabel').textContent=cargoFlight?'Cargo orbit · '+MISSION[target].name:`${target==='star'?'Impact':'Orbit'} ${MISSION[target].name}`;
- $('objectiveHint').textContent=cargoFlight?'Pilot into a safe orbit around the source planet; docking is coming next.':MISSION[target].hint;
+ $('objectiveHint').textContent=cargoFlight?'SANDBOX: '+(cargoFlight.training?'2 units of virtual cargo':'Cargo loaded for flight preview')+' · Reach a stable orbit. No inventory changes.':MISSION[target].hint;
  updateStationUI();
  $('controlTitle').textContent=phase==='aiming'?(cargoFlight?'Local cargo launch':'Launch parameters'):phase==='flying'?(cargoFlight?'Cargo orbit insertion':'Manual orbital capture'):'Flight complete';
  $('controlSub').textContent=phase==='aiming'?(cargoFlight?'Set the local orbital launch angle and Δv':'Advance time to find better planet alignment'):phase==='flying'?(localEncounter?'Pilot the burn; safe orbit requires a full revolution':'Approach the target capture zone'):'Adjust launch parameters to retry';
  $('statusPill').textContent=phase==='aiming'?'READY':phase==='flying'?(warpTarget?'WARPING':paused?'PAUSED':'IN FLIGHT'):(phase==='won'?'SUCCESS':'LOST');
  $('statusPill').className='status-pill '+(phase==='flying'?'moving':phase==='won'?'won':phase==='lost'?'lost':'');
+ $('exitCargoTest').hidden=!cargoFlight;
+ $('demoCargoLaunch').disabled=phase==='flying';
  const disable=phase==='flying';for(const id of ['angleRange','speedRange','angleMinus','anglePlus','angleMinusFine','anglePlusFine','speedMinusLarge','speedMinusFine','speedPlusFine','speedPlusLarge','speedZero'])$(id).disabled=disable;
  $('planningPanel').hidden=disable;
  $('flightPanel').hidden=!disable;
@@ -1498,6 +1520,11 @@ $('togglePath').addEventListener('click',()=>{showPath=!showPath;$('togglePath')
 $('pauseButton').addEventListener('click',()=>{if(phase==='flying'){if(warpTarget)stopWarp();else{paused=!paused;if(!paused){orbitWait=0;orbitForecastCache=null}holdPointer=null;holdOrigin=null;holdDouble=false;setPanelCollapsed(!paused);updateControls()}}});
 for(const id of ['aurora','cinder','star'])$('mission'+id[0].toUpperCase()+id.slice(1)).addEventListener('click',()=>chooseTarget(id));
 $('stationButton').addEventListener('click',openStationDashboard);
+$('demoCargoLaunch').addEventListener('click',()=>{
+ if(!beginCargoTraining($('demoCargoPlanet').value))
+  $('demoCargoStatus').textContent='Finish or reset your current flight before starting a new cargo test.';
+});
+$('exitCargoTest').addEventListener('click',()=>chooseTarget('aurora'));
 $('stationClose').addEventListener('click',closeStationDashboard);
 $('mineBack').addEventListener('click',closeMiningScreen);
 $('mineSurvey').addEventListener('click',()=>{
@@ -1530,7 +1557,7 @@ if('ResizeObserver' in window)new ResizeObserver(resize).observe(arena);
 resize();setCamera();predict();updateControls();requestAnimationFrame(frame);
 // Check for new releases when the Home Screen app opens, resumes, and while it remains open.
 // Defer updates during a live flight so the player's maneuver is not interrupted.
-const APP_RELEASE='0.15.0';
+const APP_RELEASE='0.15.1';
 let checkingRelease=false, pendingRelease=null, applyingRelease=false;
 function applyPendingRelease(){
  if(!pendingRelease||phase==='flying'||applyingRelease)return;
@@ -1576,7 +1603,7 @@ window.__flightLab={getState:()=>({phase,target,angle,speed,simT,cargoFlight:car
  panelCollapsed,stations:JSON.parse(JSON.stringify(stations)),stationStats:{aurora:stationSummary('aurora'),cinder:stationSummary('cinder')},mining:{aurora:mineSummary('aurora'),cinder:mineSummary('cinder')},mineScreenPlanet,waitTime,launchEpoch,zoom:currentMap().zoom,panX:currentMap().panX,panY:currentMap().panY,viewMode:orbitCameraActive()?'orbit':'system',fuel,paused,rocket,localEncounter,warpTarget,warpStop,orbitWait,holdDouble,planned:paused&&localEncounter?{safe:plannedOrbitState().safe,reason:plannedOrbitState().reason,state:plannedOrbitState().state}:null,apsis:paused&&localEncounter?apsisForecast():null,burnPower,burnAngle,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
  predicted:burnPreview?{coast:burnPreview.coast?.rating,after:burnPreview.after?.rating,points:burnPreview.after?.points.length,ending:burnPreview.after?.ending}:null,grades}),
  setAim:(a,v)=>{if(phase==='aiming')changeAim(a,v)},launchHeading,launchAngleFromHeading,setWaitTime,chooseTarget,resetFlight,
- setBurn:(a,power)=>{setBurnAngle(a);setBurnPower(power)},orbitBurnBasis,orbitBurnDirection,orbitBurnAngleFromHeading,setPanelCollapsed,zoomMap,panMap,
+ beginCargoTraining,setBurn:(a,power)=>{setBurnAngle(a);setBurnPower(power)},orbitBurnBasis,orbitBurnDirection,orbitBurnAngleFromHeading,setPanelCollapsed,zoomMap,panMap,
  applyBurn,setOrbitWait,waitToOrbitTime,plannedOrbitState,waitToApsis,stopWarp,stationSummary,openStationDashboard,closeStationDashboard,surveyPlanet,toggleMineRig,mineSummary,settleMine,openMiningScreen,closeMiningScreen,circularOrbitRating,orbitHeatBands,gradePaint,advanceTest:(n=1)=>{for(let i=0;i<n&&phase==='flying'&&!paused;i++)tickPhysics(.055);updateControls();}};
 })();
 </script>
