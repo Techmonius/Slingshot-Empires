@@ -376,6 +376,16 @@
       <button id="mineSurvey" class="mine-survey">SURVEY THE PLANET</button>
       <div id="mineDeposits" class="mine-grid" hidden></div>
       <p id="mineNote" class="mine-note">Production uses local time, with up to 6 hours of offline progress. Materials are stored on their planet until logistics routes exist.</p>
+      <div id="cargoPlaytestControls" hidden style="margin-top:10px;padding:9px;border:1px solid #487b87;border-radius:9px;background:#102f42">
+        <strong style="font-size:11px">CARGO ORBIT PLAYTEST</strong>
+        <p style="font-size:10px;color:#b2d9ec">Uses the existing orbital map. No mined material is spent or delivered.</p>
+        <label for="cargoPlaytestResource" style="font-size:10px">Resource</label>
+        <select id="cargoPlaytestResource" style="width:100%;background:#152c42;color:white;padding:7px"></select>
+        <label for="cargoPlaytestAmount" style="font-size:10px">Units</label>
+        <input id="cargoPlaytestAmount" type="number" min="1" max="12" step="1" value="2" style="width:100%;background:#152c42;color:white;padding:7px">
+        <button id="cargoPlaytestStart" class="mine-survey">PLAN LOCAL LAUNCH</button>
+        <p id="cargoPlaytestWarning" aria-live="polite" style="font-size:10px;color:#a8ebda"></p>
+      </div>
     </div>
   </div>
   <div class="shade" id="resultShade" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
@@ -726,7 +736,7 @@ function updateStationUI(){
  const current=STATION_PLANETS.includes(target)?stationSummary(target):null;
  $('stationStatus').hidden=!current;
  if(current){
-  if(phase==='aiming')$('objectiveHint').textContent=current.operational?'Improve quality with a better orbital delivery':'Deliver '+(STATION_REQUIRED-current.modules)+' more safe-orbit rocket'+(STATION_REQUIRED-current.modules===1?'':'s');
+  if(phase==='aiming'&&!cargoFlight)$('objectiveHint').textContent=current.operational?'Improve quality with a better orbital delivery':'Deliver '+(STATION_REQUIRED-current.modules)+' more safe-orbit rocket'+(STATION_REQUIRED-current.modules===1?'':'s');
   $('stationStatus').className='station-chip'+(current.operational?' operational':'');
   $('stationStatus').textContent=current.operational
    ?'STATION ONLINE · '+(current.efficiency===null?'UNRATED':'LOGISTICS '+current.efficiency+'%')
@@ -799,6 +809,14 @@ function renderMiningScreen(){
  if(!id||!stationSummary(id).operational)return;
  settleMine(id);store();
  const u=mineSummary(id),name=MISSION[id].name;
+ $('cargoPlaytestControls').hidden=!CARGO_PLAYTEST||!u.surveyed;
+ if(CARGO_PLAYTEST&&u.surveyed){
+  const field=$('cargoPlaytestResource'),prev=field.value,stock=u.deposits.filter(d=>d.stock>=1);
+  field.innerHTML=stock.map(d=>'<option value="'+d.id+'">'+d.name+' ('+d.stock.toFixed(1)+')</option>').join('');
+  if(stock.some(d=>d.id===prev))field.value=prev;
+  $('cargoPlaytestStart').disabled=!stock.length;
+  $('cargoPlaytestWarning').textContent=stock.length?'Stock remains on the planet in this playtest.':'Mine at least 1 unit first.';
+ }
  $('mineTitle').textContent=name+' · SURFACE OPERATIONS';
  $('mineDescription').textContent=u.surveyed
   ?'Choose up to '+MAX_EXTRACTORS+' extraction sites. Reserves are finite; stockpiles remain on '+name+' until cargo routes are established.'
@@ -867,6 +885,19 @@ function setPanelCollapsed(collapsed){
 }
 let shots=saved.shots,wins=new Set(saved.wins),grades=saved.grades,stations=saved.stations,mines=saved.mines,mineScreenPlanet=null,cargoFlight=null,target='aurora',angle=0,speed=32,phase='aiming',showPath=true,paused=false,dragging=false,pointerId=null,burnDragging=false,rocket=null,simT=0,waitTime=0,launchEpoch=0,path=[],prediction=null,previewCapture=null,lastFrame=0,accum=0,view={width:0,height:0,scale:1,cx:0,cy:0},stars=[],result=null,fuel=MAX_FUEL,encounterNotified=false,localEncounter=false,burnPower=0,burnAngle=0,orbitWait=0,orbitForecastCache=null,holdPointer=null,holdOrigin=null,holdDouble=false,warpTarget=null,warpStop=null,apsisCacheRocket=null,apsisCache=null,burnCount=0,stableSweep=0,lastPolar=null,burnPreview=null,finalScore=null;
 function store(){try{localStorage.setItem(DATA_KEY,JSON.stringify({shots,wins:[...wins],grades,stations,mines}))}catch{}}
+// Development-only: a cargo manifest is a flight preview, not an inventory transaction.
+function beginSurfaceCargoPreview(world,resource,rawAmount){
+ if(!CARGO_PLAYTEST||!STATION_PLANETS.includes(world)||
+   !stationSummary(world).operational||!mines[world].surveyed)return false;
+ settleMine(world);
+ const amount=Number(rawAmount),available=mines[world].stock[resource]||0;
+ if(!RESOURCE_DEPOSITS[world].some(d=>d.id===resource)||!Number.isInteger(amount)||
+   amount<1||amount>12||amount>available+1e-9)return false;
+ cargoFlight={world,resource,amount};target=world;angle=0;speed=7;waitTime=0;
+ $('miningShade').classList.remove('show');
+ $('miningShade').setAttribute('aria-hidden','true');mineScreenPlanet=null;
+ resetFlight();return true;
+}
 function orbitPos(p,t){const omega=Math.sqrt(MU_STAR/(p.orbit**3));const q=p.phase+omega*t;return {x:p.orbit*Math.cos(q),y:p.orbit*Math.sin(q),vx:-p.orbit*omega*Math.sin(q),vy:p.orbit*omega*Math.cos(q)}}
 function bodiesAt(t){return PLANETS.map(p=>({...p,...orbitPos(p,t)}))}
 function getBody(id,t){if(id==='star')return {...STAR,x:0,y:0,vx:0,vy:0};const p=PLANETS.find(p=>p.id===id);return {...p,...orbitPos(p,t)}}
@@ -937,10 +968,10 @@ function updateControls(){
  $('shotCount').textContent=shots;$('winCount').textContent=wins.size;
  $('clock').textContent=`T + ${simT.toFixed(1)}s${holdDouble?' · HOLD 2×':''}`;
  $('clock').classList.toggle('holding',holdDouble);
- $('objectiveLabel').textContent=`${target==='star'?'Impact':'Orbit'} ${MISSION[target].name}`;
- $('objectiveHint').textContent=MISSION[target].hint;
+ $('objectiveLabel').textContent=cargoFlight?'Cargo orbit · '+MISSION[target].name:`${target==='star'?'Impact':'Orbit'} ${MISSION[target].name}`;
+ $('objectiveHint').textContent=cargoFlight?'Pilot into a safe orbit around the source planet; docking is coming next.':MISSION[target].hint;
  updateStationUI();
- $('controlTitle').textContent=phase==='aiming'?'Launch parameters':phase==='flying'?'Manual orbital capture':'Flight complete';
+ $('controlTitle').textContent=phase==='aiming'?(cargoFlight?'Local cargo launch':'Launch parameters'):phase==='flying'?(cargoFlight?'Cargo orbit insertion':'Manual orbital capture'):'Flight complete';
  $('controlSub').textContent=phase==='aiming'?'Advance time to find better planet alignment':phase==='flying'?(localEncounter?'Pilot the burn; safe orbit requires a full revolution':'Approach the target capture zone'):'Adjust launch parameters to retry';
  $('statusPill').textContent=phase==='aiming'?'READY':phase==='flying'?(warpTarget?'WARPING':paused?'PAUSED':'IN FLIGHT'):(phase==='won'?'SUCCESS':'LOST');
  $('statusPill').className='status-pill '+(phase==='flying'?'moving':phase==='won'?'won':phase==='lost'?'lost':'');
@@ -1027,9 +1058,9 @@ function updateControls(){
    $('orbitButton').disabled=true;$('orbitButton').textContent='WAIT FOR ENCOUNTER';
   }
  }
- $('launchButton').disabled=disable;$('launchButton').textContent=disable?'● IN FLIGHT':phase==='aiming'?'▶ LAUNCH ROCKET':'▶ FLY AGAIN';
+ $('launchButton').disabled=disable;$('launchButton').textContent=disable?'● IN FLIGHT':phase==='aiming'?(cargoFlight?'▶ LAUNCH CARGO':'▶ LAUNCH ROCKET'):'▶ FLY AGAIN';
  $('pauseButton').textContent=paused?'▶':'Ⅱ';$('pauseButton').title=paused?'Resume flight':'Pause flight';
- $('touchTip').textContent=phase==='aiming'?(target==='star'?'Aim to hit the star':'Drag HOME to aim · Pinch to zoom'):phase==='flying'?(localEncounter?(paused?'Drag rocket to aim · Pinch to zoom':'Pause to plan · Pinch to zoom'): 'Hold map for 2× travel · Drag to pan'):'Pinch to zoom · Drag empty space to pan';
+ $('touchTip').textContent=phase==='aiming'?(cargoFlight?'Drag launch planet to aim · Pinch to zoom':target==='star'?'Aim to hit the star':'Drag HOME to aim · Pinch to zoom'):phase==='flying'?(localEncounter?(paused?'Drag rocket to aim · Pinch to zoom':'Pause to plan · Pinch to zoom'): 'Hold map for 2× travel · Drag to pan'):'Pinch to zoom · Drag empty space to pan';
  for(const id of ['aurora','cinder','star'])$('mission'+id[0].toUpperCase()+id.slice(1)).style.color=id===target?'#e5fbff':'#7fa3c2';
 }
 function chooseTarget(id){if(!MISSION[id])return;cargoFlight=null;target=id;resetFlight();}
@@ -1461,6 +1492,11 @@ $('mineSurvey').addEventListener('click',()=>{
  if(mineScreenPlanet)surveyPlanet(mineScreenPlanet);
  renderMiningScreen();
 });
+$('cargoPlaytestStart').addEventListener('click',()=>{
+ if(!mineScreenPlanet)return;
+ if(!beginSurfaceCargoPreview(mineScreenPlanet,$('cargoPlaytestResource').value,$('cargoPlaytestAmount').value))
+  $('cargoPlaytestWarning').textContent='Use 1–12 whole units of material available on the planet.';
+});
 $('mineDeposits').addEventListener('click',e=>{
  const button=e.target.closest('button[data-resource]');
  if(!button||!mineScreenPlanet)return;
@@ -1524,7 +1560,7 @@ if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
  setInterval(checkAppRelease,90000);
 }
 // Expose a tiny diagnostic API for automated regression tests, not gameplay.
-window.__flightLab={getState:()=>({phase,target,angle,speed,simT,shots,wins:[...wins],prediction,
+window.__flightLab={getState:()=>({phase,target,angle,speed,simT,cargoFlight:cargoFlight?{...cargoFlight}:null,shots,wins:[...wins],prediction,
  panelCollapsed,stations:JSON.parse(JSON.stringify(stations)),stationStats:{aurora:stationSummary('aurora'),cinder:stationSummary('cinder')},mining:{aurora:mineSummary('aurora'),cinder:mineSummary('cinder')},mineScreenPlanet,waitTime,launchEpoch,zoom:currentMap().zoom,panX:currentMap().panX,panY:currentMap().panY,viewMode:orbitCameraActive()?'orbit':'system',fuel,paused,rocket,localEncounter,warpTarget,warpStop,orbitWait,holdDouble,planned:paused&&localEncounter?{safe:plannedOrbitState().safe,reason:plannedOrbitState().reason,state:plannedOrbitState().state}:null,apsis:paused&&localEncounter?apsisForecast():null,burnPower,burnAngle,burnCount,stableSweep,orbit:localEncounter?orbitalElements(rocket,target):null,previewCapture,
  predicted:burnPreview?{coast:burnPreview.coast?.rating,after:burnPreview.after?.rating,points:burnPreview.after?.points.length,ending:burnPreview.after?.ending}:null,grades}),
  setAim:(a,v)=>{if(phase==='aiming')changeAim(a,v)},launchHeading,launchAngleFromHeading,setWaitTime,chooseTarget,resetFlight,
