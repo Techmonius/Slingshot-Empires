@@ -1,29 +1,35 @@
-# Slingshot Empires — Flight Lab v0.15
+# Slingshot Empires — Flight Lab v0.15.1 (Playtest Release)
 
 Live game: https://techmonius.github.io/Slingshot-Empires/
 
+## v0.15.1 — Playtest release (installed iPhone PWA)
+
+**This interim release is playable, not the full v0.16 feature-complete launch.** In the app, tap **🛰 Orbital Stations** and use the new **🚀 CARGO FLIGHT PLAYTEST** section. Choose Aurora or Cinder and select **START TEST FLIGHT**. It uses virtual cargo and works even with an entirely new save, before commissioning stations. From the same screen open **2D SPACECRAFT BUILDER** to drag parts onto a ship, adjust battery/coupler and preview performance. Existing commissioned/surveyed planets with mined stock additionally show **PLAN LOCAL LAUNCH** on their mining screens. Launch angle, manual burns, local gravity, and trajectory preview all use the main orbital map.
+
+**Safe test-mode limitations:** Cargo remains virtual or preview-only; neither loading, crashing nor aborting spends real mined resources. No docking completion, orbital cargo unloading, fuel-cost integration, station-construction credit, or automatic routes yet. Regular Home missions and `slingshot-flight-lab-v04` saved progress are preserved. Use **EXIT CARGO TEST** in the flight controls to return to normal missions. The offline service worker pre-caches the spacecraft builder and its engine model. Run `node cargo-flight.test.js` before modifying the core flight loop.
+
 ## v0.16 integration status (updated after CEO design review)
 
-**Repository work is real; complete v0.16 cargo gameplay is not released.** `index.html` now contains an **opt-in cargo ascent test mode**, but `APP_RELEASE`, `release.json`, and the offline cache remain at v0.15. The experimental mode is hidden in ordinary gameplay and does not modify mined resource quantities, station delivery history, or normal flight totals. `ship-builder.html` remains a separate design prototype.
+**Complete v0.16 cargo gameplay is still under construction.** However, v0.15.1 now includes a **visible, installed-app orbital cargo playtest**, plus a direct link to the 2D modular builder. The cargo test does not modify mined resource quantities, station delivery history, or normal flight totals. The builder is still a separate design prototype, now accessible from inside the installed PWA.
 
 | System | Implemented in development | Actually playable in installed game? |
 |---|---|---|
 | Survey and surface mining | v0.15 game | Yes |
-| Modular spacecraft editor | Standalone 2D drag/drop prototype | No |
-| Battery + docking couplers | Part catalog, charge controls, validation | No |
+| Modular spacecraft editor | Standalone 2D drag/drop prototype, linked from the game | Yes, prototype page |
+| Battery + docking couplers | Part catalog, charge controls, validation | Yes, in builder prototype only |
 | Cargo inventory/route validation | Data-only logic | No |
 | Manual approach/assisted docking | Data-only state machine | No |
 | Home dock expansions | Research/material gated model | No |
-| Surface-to-orbit cargo launch | **Opt-in test inside the existing orbital map:** launch from Aurora/Cinder, local gravity integration, trajectory preview, angle/Δv launch and manual orbit burns | No, only experimental `?cargoDev=1` mode |
+| Surface-to-orbit cargo launch | **In-app interim playtest** launched from Orbital Stations, or existing surveyed mining stock; local gravity, angle/Δv and manual burns | Yes, in v0.15.1 read-only practice mode |
 | Inventory-changing cargo unloading | Not yet | No |
 | Chemistry and manufacturing puzzles | Not yet | No |
 | Research tree and advanced rocket unlock | Not yet | No |
 
-**CEO-approved surface ascent method (Option A):** Reuse the existing orbital map and launch/burn controls, not a dedicated ascent minigame. The first playable integration slice is committed and tested. In an **online development session**, append `?cargoDev=1` to the game URL, enter a commissioned Aurora or Cinder station's mining screen, survey/mine at least 1 unit, choose a 1–12-unit test manifest, and tap **PLAN LOCAL LAUNCH**. The map switches to that planet's orbit view and its local gravitational integrator. Launch Δv, manual orbit burns, prediction, pause/coast, and orbital telemetry remain available. Ordinary Home-origin flights still work.
+**CEO-approved surface ascent method (Option A):** Reuse the existing orbital map and launch/burn controls, not a dedicated ascent minigame. The first playable integration slice is committed and tested. In v0.15.1, tap **Orbital Stations → CARGO FLIGHT PLAYTEST → START TEST FLIGHT** for immediate virtual cargo without mining prerequisites. Alternatively, in a commissioned Aurora or Cinder station's mining screen, survey/mine at least 1 unit, choose a 1–12-unit test manifest, and tap **PLAN LOCAL LAUNCH**. The map switches to that planet's orbit view and its local gravitational integrator. Launch Δv, manual orbit burns, prediction, pause/coast, and orbital telemetry remain available. Ordinary Home-origin flights still work.
 
-**Deliberate restrictions:** The cargo manifest is **read-only**; no stock is withdrawn, delivered or credited, even if the test rocket obtains a stable orbit. Cargo flights do not increase legacy shot totals or count toward station-construction deliveries, and a stable orbit does **not** complete docking. The first prototype still uses the legacy fixed flight fuel allowance; integration of modular ship mass/rocket-equation fuel and the moving-station docking state machine remains to be completed. Experimental flights can run until impact, escape, timeout or reset, without awarding cargo success. The current offline PWA cache is not updated for this development-only path, so it may require a fresh online load.
+**Deliberate restrictions:** The cargo manifest is **read-only**; no stock is withdrawn, delivered or credited, even if the test rocket obtains a stable orbit. Cargo flights do not increase legacy shot totals or count toward station-construction deliveries, and a stable orbit does **not** complete docking. The first prototype still uses the legacy fixed flight fuel allowance; integration of modular ship mass/rocket-equation fuel and the moving-station docking state machine remains to be completed. Experimental flights can run until impact, escape, timeout or reset, without awarding cargo success. The v0.15.1 offline PWA cache includes the release and spacecraft builder assets; on first update, open the installed PWA online so it can refresh.
 
-**Next implementation target:** Connect the player's modular ship and real fuel budget to this exact in-map cargo mode; then connect station-position/relative-velocity docking, finally transactional cargo unloading. Obtain CEO design approval on cargo failure/recovery rules before spending real deposits. Run `node cargo-flight.test.js` for the in-map integration regression suite. Do not update the PWA release marker until a full delivery is working and tested.
+**Next implementation target:** Connect the player's modular ship and real fuel budget to this exact in-map cargo mode; then connect station-position/relative-velocity docking, finally transactional cargo unloading. CEO approved **at-risk cargo with recovery or salvage options**; the precise salvage mechanic and loss probabilities still need player approval before real deposits can be spent. Run `node cargo-flight.test.js` for the in-map integration regression suite. Do not update the PWA release marker until a full delivery is working and tested.
 
 Research-gated solar power, later direct delivery, and automated repeat routes remain subsequent unlocks. **Do not advance the main PWA release marker** until the whole first mission actually works and existing saves are regression tested.
 
