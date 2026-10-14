@@ -98,6 +98,7 @@ footer{font-size:10px;color:#93b6cc;line-height:1.5;margin-top:10px}.desktop-not
    <div class="nose"></div>
    <div class="fins"></div>
    <div class="frame-body" id="frameBody">
+    <div class="frame-label">DOCKING &amp; AVIONICS</div><div id="dockSocket"></div>
     <div class="frame-label">CARGO</div><div id="baySockets"></div>
     <div class="frame-label">PROPELLANT</div><div id="tankSockets"></div>
     <div class="frame-label">PROPULSION</div><div id="engineSocket"></div>
@@ -117,6 +118,9 @@ footer{font-size:10px;color:#93b6cc;line-height:1.5;margin-top:10px}.desktop-not
    <div class="panel-title">LOADING &amp; ENGINEERING</div>
    <div class="fuel-wrap"><div class="frame-row"><label for="fuelRange">PROPELLANT</label><strong id="fuelLabel">7.0 / 7.0 units</strong></div>
     <input id="fuelRange" type="range" min="0" max="7" step="0.1" value="7" aria-label="Fuel load"></div>
+   <div class="fuel-wrap"><div class="frame-row"><label for="powerRange">BATTERY CHARGE</label><strong id="powerLabel">6.0 / 6.0 units</strong></div>
+    <input id="powerRange" type="range" min="0" max="6" step="0.1" value="6" aria-label="Battery charge">
+    <div class="tip" id="dockPowerStatus">Docking coupler ready. Assisted docking consumes electrical charge, not rocket fuel.</div></div>
    <div class="input-row"><label for="cargoType">CARGO MATERIAL</label>
     <select id="cargoType"><option value="ice">Water Ice</option><option value="silicon">Silicon Ore</option><option value="helium3">Helium-3</option><option value="iron">Iron Ore</option><option value="copper">Copper Ore</option><option value="sulfur">Sulfur</option></select></div>
    <div class="input-row"><label for="cargoAmount">QUANTITY</label><input id="cargoAmount" type="number" min="0" max="100" step="1" value="4"></div>
@@ -163,7 +167,7 @@ const $=id=>document.getElementById(id);
 const KEY='slingshot-shipyard-prototype-v016';
 const KNOWN=SHIPS.PARTS;
 const UNLOCKED=[]; // Research is not live yet.
-const PART_SYMBOL={engine:'🔥',tank:'◈',bay:'▣'};
+const PART_SYMBOL={engine:'🔥',tank:'◈',bay:'▣',dock:'🧲'};
 const LABEL={ice:'Water Ice',silicon:'Silicon Ore',helium3:'Helium-3',iron:'Iron Ore',copper:'Copper Ore',sulfur:'Sulfur'};
 const warn=(txt,error=false)=>{$('warning').textContent=txt;$('warning').classList.toggle('error',error)};
 const clone=o=>JSON.parse(JSON.stringify(o));
@@ -182,6 +186,10 @@ function normalized(input){
  const tanks=slots('tanks','tank',f.tankMounts,[...defaultShip.tanks,null]);
  const bays=slots('bays','bay',f.bayMounts,defaultShip.bays);
  const engine=KNOWN[x.engine]?.type==='engine'&&!KNOWN[x.engine].requires?x.engine:(x.engine===null?null:defaultShip.engine);
+ const docking=x.docking===null?null:
+   (KNOWN[x.docking]?.type==='dock'&&!KNOWN[x.docking].requires?x.docking:defaultShip.docking);
+ const initialPower=Number.isFinite(x.powerUnits)?x.powerUnits:defaultShip.powerUnits;
+ const powerUnits=Math.min(f.batteryCapacity,Math.max(0,Math.round(initialPower*10)/10));
  const payload={};
  if(x.payload&&typeof x.payload==='object'&&!Array.isArray(x.payload)){
   for(const [id,n] of Object.entries(x.payload)){
@@ -190,7 +198,7 @@ function normalized(input){
  }
  const maximum=tanks.reduce((n,id)=>n+(KNOWN[id]?.fuelCapacity||0),0);
  const requested=typeof x.fuelUnits==='number'&&Number.isFinite(x.fuelUnits)?x.fuelUnits:defaultShip.fuelUnits;
- return {frame,engine,tanks,bays,payload,fuelUnits:Math.min(maximum,Math.max(0,Math.round(requested*10)/10))};
+ return {frame,engine,docking,tanks,bays,payload,powerUnits,fuelUnits:Math.min(maximum,Math.max(0,Math.round(requested*10)/10))};
 }
 function restore(){
  try{return normalized(JSON.parse(localStorage.getItem(KEY)||'null'))}
@@ -200,11 +208,14 @@ let state=restore(),selection=null,gesture=null,feedback='';
 const slotValue=(slot)=>{
  const [type,indexText]=slot.split(':');
  if(type==='engine')return state.engine;
+ if(type==='dock')return state.docking;
  return state[type+'s']?.[+indexText]||null;
 };
 const slotType=slot=>slot.split(':')[0]==='engine'?'engine':slot.split(':')[0];
 const validSlot=(part,slot)=>!!KNOWN[part]&&!KNOWN[part].requires&&KNOWN[part].type===slotType(slot)&&(
- slotType(slot)==='engine'||(+slot.split(':')[1]<state[slotType(slot)+'s'].length));
+ slotType(slot)==='engine'?slot==='engine:0':slotType(slot)==='dock'?slot==='dock:0':
+ Number.isInteger(+slot.split(':')[1])&&+slot.split(':')[1]>=0&&
+ +slot.split(':')[1]<state[slotType(slot)+'s'].length);
 function place(part,slot,origin=null){
  if(!validSlot(part,slot)){warn('That part does not fit this attachment point.',true);return false}
  const before=clone(state);
@@ -214,9 +225,11 @@ function place(part,slot,origin=null){
   if(!validSlot(part,origin)||slotValue(origin)!==part)return false;
   const [fromKind,fromIndex]=origin.split(':');
   if(fromKind==='engine')state.engine=previous||null;
+  else if(fromKind==='dock')state.docking=previous||null;
   else state[fromKind+'s'][+fromIndex]=previous||null;
  }
  if(kind==='engine')state.engine=part;
+ else if(kind==='dock')state.docking=part;
  else state[kind+'s'][i]=part;
  state.fuelUnits=Math.min(state.fuelUnits,cap());
  if(JSON.stringify(before)===JSON.stringify(state)){render();return true}
@@ -227,6 +240,7 @@ function remove(slot){
  if(!part)return false;
  const [kind,index]=slot.split(':');
  if(kind==='engine')state.engine=null;
+ else if(kind==='dock')state.docking=null;
  else state[kind+'s'][+index]=null;
  state.fuelUnits=Math.min(state.fuelUnits,cap());
  feedback=KNOWN[part].name+' removed';render();return true;
@@ -240,7 +254,7 @@ function socket(slot,title,layout){
  const position=layout?.slots?.[slot],candidatePart=selection?.part;
  const compatible=!!candidatePart&&validSlot(candidatePart,slot);
  let preview=null;
- if(compatible&&slotType(slot)!=='engine'){
+ if(compatible&&slotType(slot)!=='engine'&&slotType(slot)!=='dock'){
   const kind=slotType(slot),index=+slot.split(':')[1],list=[...state[kind+'s']];
   list[index]=candidatePart;
   preview=SHIPS.evaluateLayout({...state,[kind+'s']:list}).slots[slot]||null;
@@ -262,7 +276,9 @@ function renderTray(){
  $('partTray').innerHTML=SHIPS.PART_IDS.filter(id=>KNOWN[id].type!=='frame').map(id=>{
   const p=KNOWN[id],locked=!!p.requires,active=selection?.part===id?'selected':'';
   const stat=p.type==='engine'?'Exhaust '+p.exhaustVelocity+' · Thrust '+p.thrust:
-   p.type==='tank'?'Fuel +'+p.fuelCapacity:'Cargo +'+p.cargoCapacity;
+   p.type==='tank'?'Fuel +'+p.fuelCapacity:
+   p.type==='dock'?'Power '+p.assistEnergyCost+' · Assist '+p.assistRadius:
+   'Cargo +'+p.cargoCapacity;
   return '<div class="part '+active+(locked?' locked':'')+'" role="button" tabindex="'+(locked?'-1':'0')+'" data-part="'+id+'" aria-disabled="'+locked+
    '" aria-label="'+p.name+(locked?', research locked':'')+'"><span class="part-icon">'+PART_SYMBOL[p.type]+'</span><div><strong>'+p.name+'</strong><small>'+
    (locked?'🔒 Research locked':stat)+'</small></div></div>';
@@ -273,6 +289,7 @@ function render(){
  $('frameName').textContent=frame.name.toUpperCase();
  $('frameSelect').value=state.frame;
  $('engineSocket').innerHTML=socket('engine:0','ENGINE',layout);
+ $('dockSocket').innerHTML=socket('dock:0','DOCKING',layout);
  $('tankSockets').innerHTML=state.tanks.map((_,i)=>socket('tank:'+i,'TANK '+(i+1),layout)).join('');
  $('baySockets').innerHTML=state.bays.map((_,i)=>socket('bay:'+i,'CARGO '+(i+1),layout)).join('');
  $('layoutScore').textContent=layout.ok&&layout.overall!==null?layout.overall.toFixed(1)+'%':'—';
@@ -299,6 +316,13 @@ function render(){
  renderTray();
  $('fuelRange').max=cap();$('fuelRange').value=state.fuelUnits;
  $('fuelLabel').textContent=state.fuelUnits.toFixed(1)+' / '+cap().toFixed(1)+' units';
+ $('powerRange').max=frame.batteryCapacity;
+ $('powerRange').value=state.powerUnits;
+ $('powerLabel').textContent=state.powerUnits.toFixed(1)+' / '+frame.batteryCapacity.toFixed(1)+' units';
+ const system=SHIPS.dockingHardware(state,{technology:UNLOCKED});
+ $('dockPowerStatus').textContent=system.ok?
+   'Docking ready · '+system.cost.toFixed(1)+' electrical units per assisted docking. No main-engine fuel.' :
+   (system.reason||'Install a docking module and charge the battery.');
  const payload=Object.entries(state.payload);
  $('cargoList').textContent=payload.length?payload.map(([id,n])=>LABEL[id]+': '+n).join(' · '):'No cargo loaded';
  const result=evaluate(),stats=result.stats;
@@ -321,6 +345,12 @@ function select(id,origin=null){
 }
 function setFuel(amount){const n=Number(amount);if(!Number.isFinite(n))return false;
  state.fuelUnits=Math.min(cap(),Math.max(0,Math.round(n*10)/10));feedback='';render();return true}
+function setPower(amount){
+ const n=Number(amount);if(!Number.isFinite(n))return false;
+ state.powerUnits=Math.min(KNOWN[state.frame].batteryCapacity,
+  Math.max(0,Math.round(n*10)/10));
+ feedback='';render();return true;
+}
 function setCargo(id,quantity){
  if(!Object.hasOwn(SHIPS.MATERIAL_MASS,id))return false;
  const n=Number(quantity);
@@ -330,6 +360,7 @@ function setCargo(id,quantity){
 }
 function reset(){state=normalized(null);selection=null;feedback='';render()}
 $('fuelRange').addEventListener('input',e=>setFuel(e.target.value));
+$('powerRange').addEventListener('input',e=>setPower(e.target.value));
 $('setCargo').addEventListener('click',()=>setCargo($('cargoType').value,$('cargoAmount').value));
 $('frameSelect').addEventListener('change',e=>{
  const id=e.target.value;if(!KNOWN[id]||KNOWN[id].requires){e.target.value=state.frame;return}
@@ -408,7 +439,7 @@ for(const parent of [tray,rocket])parent.addEventListener('keydown',e=>{
  if(part){e.preventDefault();handleTapPart(part)}
  if(slot&&selection){e.preventDefault();place(selection.part,slot.dataset.slot,selection.origin)}
 });
-window.__shipBuilder={snapshot:()=>clone(state),evaluate,layout:()=>SHIPS.evaluateLayout(state),select,place,remove,setFuel,setCargo,reset,normal:normalized};
+window.__shipBuilder={snapshot:()=>clone(state),evaluate,layout:()=>SHIPS.evaluateLayout(state),dock:()=>SHIPS.dockingHardware(state,{technology:UNLOCKED}),select,place,remove,setFuel,setPower,setCargo,reset,normal:normalized};
 render();
 })();
 </script>
