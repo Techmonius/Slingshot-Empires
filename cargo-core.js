@@ -67,6 +67,25 @@
    capacity:storageCapacity,facilities:[...valid],capabilities,
    upgrades:Object.keys(HOME_FACILITIES).filter(id=>!valid.has(id))};
  }
+ function homeDockStorage(cargo){
+  const inventory=safeStock(cargo?.stationHold?.home);
+  const occupied=Object.values(inventory).reduce((n,v)=>n+v,0);
+  const capacity=homeDockSummary(cargo).capacity;
+  return {capacity,occupied,available:Math.max(0,capacity-occupied),
+   overflow:Math.max(0,occupied-capacity)};
+ }
+ function canReceiveHomeCargo(cargo,manifest){
+  if(!manifest||typeof manifest!=='object'||Array.isArray(manifest))
+   return {ok:false,reason:'Invalid delivery manifest'};
+  const items=Object.entries(manifest);
+  if(!items.length||items.some(([k,v])=>!KNOWN_RESOURCES.has(k)||
+    typeof v!=='number'||!Number.isFinite(v)||v<=0||v>MAX_UNITS))
+   return {ok:false,reason:'Invalid delivery resources or quantities'};
+  const incoming=items.reduce((n,[,v])=>n+v,0),storage=homeDockStorage(cargo);
+  if(incoming>storage.available+1e-9)
+   return {ok:false,reason:'Home docking storage is full',incoming,...storage};
+  return {ok:true,incoming,...storage};
+ }
  function homeDockUpgradeCheck(cargo,id,technology=[]){
   const facility=HOME_FACILITIES[id];
   if(!facility)return {ok:false,reason:'Unknown Home dock facility'};
@@ -158,5 +177,5 @@
  }
  return Object.freeze({SCHEMA_VERSION,WORLDS,RESOURCES,LOCATIONS,
   HOME_FACILITIES,HOME_DOCK_INITIAL_CAPACITY,newCargoState,loadCargoState,getNodeInventory,classifyLeg,checkCargoPlan,
-  homeDockSummary,homeDockUpgradeCheck,upgradeHomeDock});
+  homeDockSummary,homeDockStorage,canReceiveHomeCargo,homeDockUpgradeCheck,upgradeHomeDock});
 });
