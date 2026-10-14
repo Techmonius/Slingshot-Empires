@@ -2,6 +2,14 @@
 
 Project north star: an iPhone-friendly orbital engineering and exploration game whose industrial economy makes orbital piloting meaningful. The player manually pilots rockets to build a persistent infrastructure network. Logistics/factory systems become deep enough to be satisfying, but should not eclipse orbital mechanics, exploration, and experimentation.
 
+## Release progression — v0.15.1 (interim playtest)
+
+Player requested a **usable installed-app release immediately** rather than waiting for complete v0.16. v0.15.1 adds **CARGO FLIGHT PLAYTEST** to the orbital station menu, available even on a fresh save with no surveyed planets or commissioned stations. Virtual cargo flights launch from Aurora or Cinder using the **existing orbital map and manual burn mechanics**. The same menu links to the drag-and-drop 2D spacecraft builder. Existing mined-stock launch previews remain supported.
+
+**Not a cargo-economy release:** Virtual cargo never deducts physical resource stock; training flights don't change station construction or ordinary shot/win history. True modular mass-based fuel, powered station docking, delivery/unloading, chemistry, and the research tree are still v0.16 milestones. Save key `slingshot-flight-lab-v04` is unchanged. Do not enable consumption until atomic cargo transfers and recovery choices are thoroughly tested.
+
+**Cargo risk design choice confirmed: Option C.** Launched cargo becomes at-risk once *real* deliveries are implemented. Crashes may destroy shipments, but aborts and certain failures permit recovery or salvage. The exact recovery method/percentages are **not yet approved**; do not invent fixed probabilities or implement irreversible cargo deductions before consultation.
+
 ## Design commitments
 
 1. **Orbital piloting stays manual.** Every new destination and logistics route must be established by the player's own launch timing, delta-v choice, gravity-assist decisions, encounter maneuvers and safe orbit/docking. The game can simulate a *previously proven* supply route automatically afterward; it must never secretly auto-pilot the first successful delivery.
