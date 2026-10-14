@@ -35,7 +35,7 @@ function create({dev=true,stock=9,surveyed=true,commissioned=true}={}){
  }
  const doc={getElementById:el,addEventListener(){}};
  const win={devicePixelRatio:1,addEventListener(){}};
- const loc={search:dev?'?cargoDev=1':'',protocol:'file:'};
+ const loc={search:dev===true?'?cargoDev=1':dev===false?'?cargoDev=0':'',protocol:'file:'};
  const db={getItem:k=>storage[k]??null,setItem(k,v){storage[k]=v}};
  new Function('window','document','localStorage','location','navigator','requestAnimationFrame',
   'setInterval','performance','URLSearchParams',"(()=>{"+app)(
@@ -93,4 +93,38 @@ assert.equal(ordinary.api.getState().target,'aurora');
 cargo.api.chooseTarget('cinder');
 assert.equal(cargo.api.getState().cargoFlight,null);
 assert.equal(cargo.api.getState().viewMode,'system');
-console.log('In-map planetary cargo flight playtest regression tests passed.');
+// Interim release: the in-app test does not require mining, surveying or stations.
+const newPlayer=create({dev:null,stock:0,surveyed:false,commissioned:false});
+newPlayer.api.openStationDashboard();
+assert.equal(newPlayer.el('demoCargoLaunch').disabled,false);
+assert.equal(newPlayer.el('demoCargoPlanet').value,'',
+ 'The DOM stub does not simulate default select values; the real markup has Aurora selected');
+// User selects Aurora from the in-app playtest card.
+newPlayer.el('demoCargoPlanet').value='aurora';
+newPlayer.handlers['demoCargoLaunch:click']();
+const training=newPlayer.api.getState();
+assert.equal(training.phase,'aiming');
+assert.equal(training.target,'aurora');
+assert.equal(training.viewMode,'orbit');
+assert.equal(training.cargoFlight.training,true);
+assert.equal(training.cargoFlight.amount,2);
+assert.equal(training.cargoFlight.resource,'ice');
+newPlayer.handlers['launchButton:click']();
+assert.equal(newPlayer.api.getState().phase,'flying');
+assert.equal(newPlayer.api.getState().localEncounter,true);
+assert.equal(newPlayer.api.getState().shots,17);
+assert.equal(newPlayer.api.getState().stationStats.aurora.deliveries,2);
+newPlayer.api.advanceTest(100);
+assert.equal(newPlayer.api.getState().mining.aurora.deposits[0].stock,0);
+assert.deepEqual(newPlayer.api.getState().wins,[]);
+assert.equal(newPlayer.api.getState().phase,'flying');
+newPlayer.api.chooseTarget('aurora');
+assert.equal(newPlayer.api.getState().cargoFlight,null);
+assert.equal(newPlayer.el('exitCargoTest').hidden,true);
+const onRelease=create({dev:null});
+onRelease.api.openMiningScreen('aurora');
+assert.equal(onRelease.el('cargoPlaytestControls').hidden,false,
+ 'The released app shows cargo playtest controls without query flags');
+assert.ok(html.includes('href="./ship-builder.html"'),'Shipyard must be discoverable from game UI');
+assert.ok(html.includes('V0.15.1 · PLAYTEST'),'Interim release must be clearly labeled');
+console.log('In-map cargo playtest and default-on release regression tests passed.');
