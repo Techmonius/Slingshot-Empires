@@ -1,5 +1,5 @@
 {
-  "version": "0.15.0",
-  "displayVersion": "V0.15",
-  "notes": "Survey planets once an orbital station is built; extract multiple finite resources into persistent inventories with two movable mining rigs and capped offline production."
+  "version": "0.15.1",
+  "displayVersion": "V0.15.1 PLAYTEST",
+  "notes": "Interim playable test: the Orbital Stations menu now offers a no-prerequisite Aurora/Cinder surface-to-orbit cargo flight with virtual inventory plus an in-app link to the 2D spacecraft builder. Existing save progress and mined stock are preserved. Full cargo docking and delivery remain in development."
 }
