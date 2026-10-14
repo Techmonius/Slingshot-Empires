@@ -2,6 +2,27 @@
 
 Live game: https://techmonius.github.io/Slingshot-Empires/
 
+## v0.16 integration status (updated after CEO design review)
+
+**Repository work is real; the v0.16 cargo gameplay is not released.** The main `index.html` and `release.json` remain at v0.15 until a real, integrated mission is completed and playtested. `ship-builder.html` is a separate prototype page.
+
+| System | Implemented in development | Actually playable in installed game? |
+|---|---|---|
+| Survey and surface mining | v0.15 game | Yes |
+| Modular spacecraft editor | Standalone 2D drag/drop prototype | No |
+| Battery + docking couplers | Part catalog, charge controls, validation | No |
+| Cargo inventory/route validation | Data-only logic | No |
+| Manual approach/assisted docking | Data-only state machine | No |
+| Home dock expansions | Research/material gated model | No |
+| Surface-to-orbit cargo launch | Not yet | No |
+| Inventory-changing cargo unloading | Not yet | No |
+| Chemistry and manufacturing puzzles | Not yet | No |
+| Research tree and advanced rocket unlock | Not yet | No |
+
+**Immediate implementation target:** Integrate a complete player-flown cargo mission with a ship built using the prototype: choose launch location and cargo, perform a real manual surface-to-orbit mission, approach the moving station, dock using electrical power, and unload cargo exactly once into the station inventory. Every resource change must be transactional and save-safe. Obtain CEO design approval on surface ascent UX before adding a new flight system.
+
+Research-gated solar power, later direct delivery, and automated repeat routes remain subsequent unlocks. **Do not advance the main PWA release marker** until the whole first mission actually works and existing saves are regression tested.
+
 ## v0.16 foundation — Manual approach, assisted final docking (model only)
 
 **Confirmed design:** A cargo mission must **manually approach the orbiting destination station** after attaining a safe planetary orbit. The final connection is assisted **only when the spacecraft is close and its velocity nearly matches the station's**. Merely getting an S/A/B stable capture grade does not dock the vessel, transfer resources or unlock an automated supply route.
@@ -12,7 +33,7 @@ Pure model in `docking-core.js` with tests in `docking-core.test.js`:
 - Proposed approach awareness zone is **12 game distance units**; final capture zone **2.5 units**; relative velocity must be **0.75 units/s or less** for **0.75 simulation seconds**, sampled continuously. Time skips cannot claim the entire hold instantly. These numbers are **design placeholders**, not verified as comfortable to play on an actual iPhone.
 - During a high-speed pass, without a safe orbit, against the wrong station, or outside close range, docking does not complete. Leaving the corridor or becoming ineligible resets the hold timer.
 - Once the short low-speed hold succeeds, the pure state machine produces a **one-time docking event** to be validated by a future live-mission integration. It **never moves cargo, spends propellant, builds facilities or fabricates a proven transport route** by itself.
-- The docking assistance hardware and any fuel/power cost are **not yet approved**. The station's moving target representation, on-map relative-speed instrumentation, and touch controls remain to be implemented before the mechanic goes live.
+- **Approved docking equipment:** Each starter Courier Frame carries a built-in **6-unit battery** and an installable **Docking Coupler** (provisional cost **2 electrical units** per successful final dock). The advanced **Precision Docking System** requires research, consumes provisionally 1 electrical unit and allows a wider final-assist zone. These use **electrical charge only**: no main-engine propellant is spent by the final docking assist. Power-generating modules (solar panels, etc.) are future research unlocks rather than early design requirements. `ship-core.js` and the 2D `ship-builder.html` now support the docking component, battery-charge slider, power readiness and component drag/drop. The station's moving target representation, on-map relative-speed instrumentation, and touch controls remain to be implemented before the mechanic goes live.
 
 This module is **not connected to the v0.15 game**. Its standalone regression suite can be run with `node docking-core.test.js`. The released game still uses v0.15; GitHub Pages deployment of a development file must not be mistaken for a new installed PWA release.
 
