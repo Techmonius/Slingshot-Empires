@@ -13,20 +13,22 @@
  const MATERIAL_MASS=Object.freeze({ice:1,silicon:1,helium3:.25,iron:1.2,copper:1.1,sulfur:.8});
  // Part IDs are stable save/recipe keys; display and assembly UI can change later.
  const PARTS=Object.freeze({
-  'starter-frame':Object.freeze({type:'frame',name:'Courier Frame',dryMass:3.5,tankMounts:2,bayMounts:1,maxCargoMass:12}),
-  'cargo-frame':Object.freeze({type:'frame',name:'Freighter Frame',dryMass:6,tankMounts:4,bayMounts:3,maxCargoMass:45,requires:'expanded-shipbuilding'}),
+  'starter-frame':Object.freeze({type:'frame',name:'Courier Frame',dryMass:3.5,tankMounts:2,bayMounts:1,maxCargoMass:12,dockMounts:1,batteryCapacity:6}),
+  'cargo-frame':Object.freeze({type:'frame',name:'Freighter Frame',dryMass:6,tankMounts:4,bayMounts:3,maxCargoMass:45,dockMounts:1,batteryCapacity:10,requires:'expanded-shipbuilding'}),
   'chemical-engine':Object.freeze({type:'engine',name:'Chemical Engine',dryMass:2.5,exhaustVelocity:38,thrust:22}),
   'vacuum-engine':Object.freeze({type:'engine',name:'Vacuum Engine',dryMass:1.7,exhaustVelocity:65,thrust:6,requires:'vacuum-propulsion'}),
   'compact-tank':Object.freeze({type:'tank',name:'Compact Tank',dryMass:.5,fuelCapacity:3}),
   'standard-tank':Object.freeze({type:'tank',name:'Standard Tank',dryMass:1,fuelCapacity:7}),
   'large-tank':Object.freeze({type:'tank',name:'Large Tank',dryMass:2.2,fuelCapacity:17,requires:'cryogenic-tankage'}),
   'cargo-pod':Object.freeze({type:'bay',name:'Cargo Pod',dryMass:1.2,cargoCapacity:12}),
-  'bulk-container':Object.freeze({type:'bay',name:'Bulk Container',dryMass:2.5,cargoCapacity:30,requires:'expanded-shipbuilding'})
+  'bulk-container':Object.freeze({type:'bay',name:'Bulk Container',dryMass:2.5,cargoCapacity:30,requires:'expanded-shipbuilding'}),
+  'basic-docking-port':Object.freeze({type:'dock',name:'Docking Coupler',dryMass:.8,assistEnergyCost:2,assistRadius:2.5,description:'Powered docking interface with final-approach assistance'}),
+  'precision-docking-port':Object.freeze({type:'dock',name:'Precision Docking System',dryMass:1.1,assistEnergyCost:1,assistRadius:3.5,requires:'precision-docking',description:'Improved active alignment with a wider final-assist envelope'})
  });
  const ids=Object.keys(PARTS);
  const fin=v=>typeof v==='number'&&Number.isFinite(v);
  const starterDesign=()=>({frame:'starter-frame',engine:'chemical-engine',
-  tanks:['standard-tank'],bays:['cargo-pod'],fuelUnits:7,payload:{}});
+  tanks:['standard-tank'],bays:['cargo-pod'],docking:'basic-docking-port',fuelUnits:7,powerUnits:6,payload:{}});
  // Mount position only affects non-flight operational efficiency. It is NOT
  // used in delta-v, thrust, acceleration, drag, steering, or trajectory math.
  // Slot zero is nearest the nose; the highest index is nearest the engine.
@@ -119,6 +121,8 @@
    return part;
   };
   const frame=moduleById(input.frame,'frame'),engine=moduleById(input.engine,'engine');
+  // Ships may omit docking hardware, but cannot complete assisted docking.
+  const docking=input.docking===null||input.docking===undefined?null:moduleById(input.docking,'dock');
   const tanks=Array.isArray(input.tanks)?input.tanks.map(x=>moduleById(x,'tank')):[];
   const bays=Array.isArray(input.bays)?input.bays.map(x=>moduleById(x,'bay')):[];
   if(!Array.isArray(input.tanks)||!tanks.length)issues.push('At least one fuel tank is required');
@@ -129,6 +133,10 @@
   const cargoCapacity=bays.reduce((n,p)=>n+(p?.cargoCapacity||0),0);
   const fuel=input.fuelUnits;
   if(!fin(fuel)||fuel<0||fuel>capacity)issues.push('Fuel load is outside installed tank capacity');
+  const batteryCapacity=frame?.batteryCapacity||0;
+  const power=input.powerUnits===undefined?batteryCapacity:input.powerUnits;
+  if(!fin(power)||power<0||power>batteryCapacity)
+   issues.push('Electrical charge is outside onboard battery capacity');
   const payload=input.payload;
   if(!payload||typeof payload!=='object'||Array.isArray(payload))issues.push('Payload must be a manifest');
   let units=0,payloadMass=0;
@@ -144,7 +152,7 @@
   if(frame&&payloadMass>frame.maxCargoMass+1e-9)issues.push('Cargo mass exceeds frame limit');
   const dryMass=(frame?.dryMass||0)+(engine?.dryMass||0)+
    tanks.reduce((n,p)=>n+(p?.dryMass||0),0)+
-   bays.reduce((n,p)=>n+(p?.dryMass||0),0)+payloadMass;
+   bays.reduce((n,p)=>n+(p?.dryMass||0),0)+(docking?.dryMass||0)+payloadMass;
   const fuelMass=fin(fuel)&&fuel>=0?fuel:0;
   if(!fin(dryMass)||dryMass<=0)issues.push('Mass calculation invalid');
   if(issues.length)return {ok:false,issues:distinctErrors(issues),stats:null};
@@ -155,8 +163,24 @@
     fuelCapacity:capacity,fuelLoaded:fuelMass,deltaV,
     thrust:engine.thrust,initialAcceleration:engine.thrust/wetMass,
     exhaustVelocity:engine.exhaustVelocity,
-    frames:1,engines:1,tankCount:tanks.length,bayCount:bays.length
+    frames:1,engines:1,tankCount:tanks.length,bayCount:bays.length,
+    batteryCapacity,powerAvailable:power,dockingModule:input.docking||null,
+    dockingInstalled:!!docking,
+    dockingEnergyCost:docking?.assistEnergyCost??null,
+    dockingAssistRadius:docking?.assistRadius??null,
+    dockingPowerReady:!!docking&&power+1e-9>=docking.assistEnergyCost
    }};
+ }
+ // Validated hardware input for docking-core, keeping charge separate from
+ // rocket propellant. Charge use occurs on successful docking only.
+ function dockingHardware(input,{technology=[]}={}){
+  const result=evaluateDesign(input,{technology});
+  if(!result.ok)return {ok:false,reason:result.issues.join('; ')};
+  const stats=result.stats;
+  if(!stats.dockingInstalled)return {ok:false,reason:'Dedicated docking module is required'};
+  if(!stats.dockingPowerReady)return {ok:false,reason:'Not enough electrical charge for assisted docking'};
+  return {ok:true,moduleId:stats.dockingModule,charge:stats.powerAvailable,
+   cost:stats.dockingEnergyCost,assistRadius:stats.dockingAssistRadius};
  }
  // Manual burns consume propellant using Tsiolkovsky's rocket equation.
  // No burns, docking, or staging occur inside this calculation.
@@ -175,5 +199,5 @@
    remainingDeltaV:stats.exhaustVelocity*Math.log((stats.dryMass+remaining)/stats.dryMass)};
  }
  return Object.freeze({SCHEMA_VERSION,MATERIAL_MASS,PARTS,PART_IDS:Object.freeze(ids),
-  starterDesign,evaluateDesign,evaluateLayout,projectService,SERVICE_RATES,POSITION_PREFERENCES,previewBurn});
+  starterDesign,evaluateDesign,evaluateLayout,projectService,SERVICE_RATES,POSITION_PREFERENCES,previewBurn,dockingHardware});
 });
