@@ -66,7 +66,7 @@ const far=dock.advanceAttempt(t0,sample(.25,{ship:ship(.25,40)})).attempt;
 assert.equal(far.holdSeconds,0);
 assert.equal(far.approachObserved,false);
 const revisit=dock.advanceAttempt(far,sample(.5)).attempt;
-assert.equal(revisit.holdSeconds,.25);
+assert.equal(revisit.holdSeconds,0,'Re-entering the corridor restarts the hold timer');
 const bigStep=dock.advanceAttempt(t0,sample(100));
 assert.equal(bigStep.docked,false,'Time skip does not instantly dock');
 assert.equal(bigStep.attempt.holdSeconds,.25);
