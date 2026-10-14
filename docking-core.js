@@ -19,6 +19,20 @@
   maxStepSeconds:.25
  });
  const finite=x=>typeof x==='number'&&Number.isFinite(x);
+ // Mirror of ship-core's docking catalog; live integration must generate this
+ // from the installed ship model, never directly from a UI-supplied claim.
+ const DOCKING_EQUIPMENT=Object.freeze({
+  'basic-docking-port':Object.freeze({cost:2,assistRadius:2.5}),
+  'precision-docking-port':Object.freeze({cost:1,assistRadius:3.5})
+ });
+ function validHardware(hardware){
+  if(!hardware||typeof hardware!=='object'||Array.isArray(hardware))return null;
+  const spec=DOCKING_EQUIPMENT[hardware.moduleId];
+  if(!spec||!finite(hardware.charge)||hardware.charge<0||
+   hardware.cost!==spec.cost||hardware.assistRadius!==spec.assistRadius)return null;
+  return {moduleId:hardware.moduleId,cost:spec.cost,assistRadius:spec.assistRadius,
+   charge:hardware.charge,powerReady:hardware.charge+1e-9>=spec.cost};
+ }
  function limits(raw={}){
   if(!raw||typeof raw!=='object'||Array.isArray(raw))return null;
   const out={...DEFAULT_LIMITS,...raw};
@@ -30,8 +44,9 @@
   return !!s&&typeof s==='object'&&['x','y','vx','vy','t'].every(k=>finite(s[k]));
  }
  function evaluateApproach({ship,station,manualFlight=false,safeOrbit=false,
-  dockOperational=false,targetWorld,stationWorld,config}={}){
-  const rules=limits(config);
+  dockOperational=false,targetWorld,stationWorld,config,hardware}={}){
+  const installed=validHardware(hardware);
+  const rules=limits({...config,...(installed?{assistRadius:installed.assistRadius}:{})});
   if(!rules)return {eligible:false,reason:'Invalid docking thresholds'};
   if(!vectorState(ship)||!vectorState(station))
    return {eligible:false,reason:'Missing or invalid spacecraft/station state'};
@@ -42,11 +57,13 @@
   const separation=Math.hypot(dx,dy),relativeSpeed=Math.hypot(dvx,dvy);
   const approachActive=separation<=rules.approachRadius;
   const inAssistZone=separation<=rules.assistRadius;
-  const ready=manualFlight===true&&safeOrbit===true&&dockOperational===true&&
+  const ready=!!installed?.powerReady&&manualFlight===true&&safeOrbit===true&&dockOperational===true&&
    typeof targetWorld==='string'&&targetWorld.length>0&&targetWorld===stationWorld;
   const withinSpeed=relativeSpeed<=rules.maxRelativeSpeed;
   let reason='Final docking assist available';
   if(!dockOperational)reason='Orbital dock is unavailable';
+  else if(!installed)reason='Install a compatible powered docking module';
+  else if(!installed.powerReady)reason='Insufficient electrical charge for docking assist';
   else if(!manualFlight)reason='Manually pilot the cargo flight and approach';
   else if(!safeOrbit)reason='Establish a safe bound orbit first';
   else if(!targetWorld||targetWorld!==stationWorld)reason='Approach the selected destination station';
@@ -55,7 +72,9 @@
   else if(!withinSpeed)reason='Reduce velocity relative to the station';
   return {eligible:ready&&inAssistZone&&withinSpeed,reason,
    separation,relativeSpeed,approachActive,inAssistZone,withinSpeed,
-   limits:rules};
+   limits:rules,hardwareReady:!!installed?.powerReady,
+   moduleId:installed?.moduleId??null,energyCost:installed?.cost??null,
+   chargeRemainingAfterDock:installed?installed.charge-installed.cost:null};
  }
  function beginAttempt({targetWorld,stationId}={}){
   if(typeof targetWorld!=='string'||!targetWorld||
@@ -96,7 +115,8 @@
    reason:docked?'Assist completed final docking':contact?'Holding low relative speed for assist':status.reason,
    // This signal must be verified against the active piloted mission, and
    // processed ONCE by a future inventory/unloading transaction.
-   dockingEvent:docked?{targetWorld:next.targetWorld,stationId:next.stationId,time:t}:null};
+   dockingEvent:docked?{targetWorld:next.targetWorld,stationId:next.stationId,time:t,
+     moduleId:status.moduleId,electricalEnergyCost:status.energyCost}:null};
  }
- return Object.freeze({MODEL_VERSION,DEFAULT_LIMITS,evaluateApproach,beginAttempt,advanceAttempt});
+ return Object.freeze({MODEL_VERSION,DEFAULT_LIMITS,DOCKING_EQUIPMENT,evaluateApproach,beginAttempt,advanceAttempt});
 });
