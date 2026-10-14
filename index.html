@@ -1084,7 +1084,7 @@ function setBurnAngle(nextAngle){burnAngle=CLAMP(Math.round(nextAngle*10)/10,-18
 function launch(){
  if(phase==='flying')return;
  if(phase!=='aiming'){resetFlight();}
- shots++;store();holdPointer=null;holdDouble=false;orbitWait=0;orbitForecastCache=null;warpTarget=null;warpStop=null;apsisCacheRocket=null;apsisCache=null;launchEpoch=waitTime;rocket=startRocket();simT=launchEpoch;phase='flying';paused=false;accum=0;fuel=MAX_FUEL;encounterNotified=false;localEncounter=!!cargoFlight;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;setPanelCollapsed(true);updateControls();
+ if(!cargoFlight){shots++;store();}holdPointer=null;holdDouble=false;orbitWait=0;orbitForecastCache=null;warpTarget=null;warpStop=null;apsisCacheRocket=null;apsisCache=null;launchEpoch=waitTime;rocket=startRocket();simT=launchEpoch;phase='flying';paused=false;accum=0;fuel=MAX_FUEL;encounterNotified=false;localEncounter=!!cargoFlight;burnPower=0;burnAngle=0;burnCount=0;stableSweep=0;lastPolar=null;burnPreview=null;finalScore=null;trail.length=0;setPanelCollapsed(true);updateControls();
 }
 const trail=[];
 function endFlight(outcome){
