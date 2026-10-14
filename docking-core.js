@@ -61,7 +61,7 @@
   if(typeof targetWorld!=='string'||!targetWorld||
    typeof stationId!=='string'||!stationId)return null;
   return {targetWorld,stationId,approachObserved:false,holdSeconds:0,lastT:null,
-   docked:false};
+   lastEligible:false,docked:false};
  }
  // Input snapshots must come from the actual manually controlled simulation.
  // The approach is observed in the outer corridor; final lock requires sustained
@@ -85,13 +85,13 @@
   // A new approach must be actively observed. Leaving the corridor resets
   // the timing; clipping the target at speed earns no docking reward.
   const contact=observed&&status.eligible;
-  const elapsed=attempt.lastT===null?0:Math.min(
+  const elapsed=attempt.lastT===null||!attempt.lastEligible?0:Math.min(
     status.limits.maxStepSeconds,Math.max(0,t-attempt.lastT));
   const holdSeconds=contact?attempt.holdSeconds+elapsed:0;
   const docked=contact&&holdSeconds+1e-9>=status.limits.stableSeconds;
   const next={targetWorld:attempt.targetWorld,stationId:attempt.stationId,
    approachObserved:status.approachActive&&observed,
-   holdSeconds:docked?status.limits.stableSeconds:holdSeconds,lastT:t,docked};
+   holdSeconds:docked?status.limits.stableSeconds:holdSeconds,lastT:t,lastEligible:contact,docked};
   return {ok:true,attempt:next,docked,assessment:status,
    reason:docked?'Assist completed final docking':contact?'Holding low relative speed for assist':status.reason,
    // This signal must be verified against the active piloted mission, and
